@@ -1,0 +1,595 @@
+{
+  "schema": "port-security-tool.device-report",
+  "schemaVersion": "1.0",
+  "reportId": "a1b2c3d4e5f60718293a4b5c6d7e8f90",
+  "agent": {
+    "name": "网络信息采集和端口管理工具",
+    "version": "1.0.0",
+    "elevated": true,
+    "osArch": "x64",
+    "runtime": "10.0.15"
+  },
+  "collectedAt": "2026-11-27T15:12:41+08:00",
+  "collectedAtText": "2026-11-27 15:12:41",
+  "device": {
+    "deviceId": "pst-0123456789abcdef",
+    "computerName": "PC-001",
+    "currentUser": "user01",
+    "domain": "CORP",
+    "serialNumber": "SN0000000",
+    "osCaption": "Windows 10 专业版",
+    "osVersion": "10.0.19044",
+    "cpu": {
+      "model": "Intel(R) Core(TM) i5-4460  CPU @ 3.20GHz",
+      "physicalCores": 4,
+      "logicalCores": 4,
+      "currentMHz": 3201,
+      "maxMHz": 3201
+    },
+    "memory": {
+      "moduleCount": 2,
+      "totalGB": 8,
+      "detail": "4.0G-1600MHz-Samsung | 4.0G-1600MHz-Samsung"
+    },
+    "board": {
+      "manufacturer": "Dell Inc.",
+      "product": "088DT1",
+      "serialNumber": "BOARD-SN-0001"
+    },
+    "bios": {
+      "manufacturer": "Dell Inc.",
+      "version": "A08",
+      "releaseDate": "2015-06-29"
+    },
+    "disks": {
+      "count": 4,
+      "detail": "[Generic- Multi-Card USB Device | 0.0G | SN:20071114173400000] [WDC WD5000AAKX-753CA1 | 465.76G | SN:WD-WMAYU9234892] [WDC WD5000AAKX-753CA1 | 465.76G | SN:WD-WMAYU9064591] [SanDisk SD8TB8U256G1001 | 238.47G | SN:165217800698]",
+      "partitions": "[C:\\ 剩余153.7G/237.66G (35.3%)] [E:\\ 剩余73.92G/149.0G (50.4%)] [F:\\ 剩余155.18G/157.0G (1.2%)] [G:\\ 剩余129.41G/159.75G (19.0%)] [H:\\ 剩余347.77G/465.0G (25.2%)]"
+    },
+    "network": {
+      "primaryMac": "00:11:22:33:44:55",
+      "addresses": [
+        {
+          "adapter": "以太网适配器",
+          "address": "169.254.83.107",
+          "prefixLength": 16,
+          "primary": false
+        },
+        {
+          "adapter": "以太网适配器 #2",
+          "address": "192.168.1.100",
+          "prefixLength": 24,
+          "primary": true,
+          "mac": "00:11:22:33:44:55"
+        },
+        {
+          "adapter": "以太网适配器 #2",
+          "address": "192.168.1.100",
+          "prefixLength": 26,
+          "primary": true,
+          "mac": "00:11:22:33:44:55"
+        }
+      ],
+      "adapters": "[以太网适配器 : 00:11:22:33:44:55]"
+    }
+  },
+  "ports": {
+    "policy": "high-risk-84",
+    "total": 84,
+    "blocked": 84,
+    "exposed": 0,
+    "items": [
+      {
+        "port": 20,
+        "service": "FTP-DATA",
+        "state": "blocked",
+        "critical": false
+      },
+      {
+        "port": 21,
+        "service": "FTP",
+        "state": "blocked",
+        "critical": true
+      },
+      {
+        "port": 22,
+        "service": "SSH",
+        "state": "blocked",
+        "critical": false
+      },
+      {
+        "port": 23,
+        "service": "Telnet",
+        "state": "blocked",
+        "critical": true
+      },
+      {
+        "port": 25,
+        "service": "SMTP",
+        "state": "blocked",
+        "critical": false
+      },
+      {
+        "port": 53,
+        "service": "DNS",
+        "state": "blocked",
+        "critical": false
+      },
+      {
+        "port": 69,
+        "service": "TFTP",
+        "state": "blocked",
+        "critical": false
+      },
+      {
+        "port": 80,
+        "service": "HTTP",
+        "state": "blocked",
+        "critical": false
+      },
+      {
+        "port": 110,
+        "service": "POP3",
+        "state": "blocked",
+        "critical": false
+      },
+      {
+        "port": 111,
+        "service": "RPCBind",
+        "state": "blocked",
+        "critical": false
+      },
+      {
+        "port": 135,
+        "service": "RPC",
+        "state": "blocked",
+        "critical": true
+      },
+      {
+        "port": 137,
+        "service": "NetBIOS-NS",
+        "state": "blocked",
+        "critical": false
+      },
+      {
+        "port": 138,
+        "service": "NetBIOS-DGM",
+        "state": "blocked",
+        "critical": false
+      },
+      {
+        "port": 139,
+        "service": "NetBIOS-SSN",
+        "state": "blocked",
+        "critical": true
+      },
+      {
+        "port": 143,
+        "service": "IMAP",
+        "state": "blocked",
+        "critical": false
+      },
+      {
+        "port": 161,
+        "service": "SNMP",
+        "state": "blocked",
+        "critical": false
+      },
+      {
+        "port": 162,
+        "service": "SNMP-Trap",
+        "state": "blocked",
+        "critical": false
+      },
+      {
+        "port": 389,
+        "service": "LDAP",
+        "state": "blocked",
+        "critical": false
+      },
+      {
+        "port": 443,
+        "service": "HTTPS",
+        "state": "blocked",
+        "critical": false
+      },
+      {
+        "port": 445,
+        "service": "SMB",
+        "state": "blocked",
+        "critical": true
+      },
+      {
+        "port": 465,
+        "service": "SMTPS",
+        "state": "blocked",
+        "critical": false
+      },
+      {
+        "port": 512,
+        "service": "rexec",
+        "state": "blocked",
+        "critical": true
+      },
+      {
+        "port": 513,
+        "service": "rlogin",
+        "state": "blocked",
+        "critical": true
+      },
+      {
+        "port": 514,
+        "service": "rsh",
+        "state": "blocked",
+        "critical": true
+      },
+      {
+        "port": 636,
+        "service": "LDAPS",
+        "state": "blocked",
+        "critical": false
+      },
+      {
+        "port": 873,
+        "service": "rsync",
+        "state": "blocked",
+        "critical": false
+      },
+      {
+        "port": 993,
+        "service": "IMAPS",
+        "state": "blocked",
+        "critical": false
+      },
+      {
+        "port": 995,
+        "service": "POP3S",
+        "state": "blocked",
+        "critical": false
+      },
+      {
+        "port": 1194,
+        "service": "OpenVPN",
+        "state": "blocked",
+        "critical": false
+      },
+      {
+        "port": 1352,
+        "service": "Lotus Notes",
+        "state": "blocked",
+        "critical": false
+      },
+      {
+        "port": 1433,
+        "service": "SQL Server",
+        "state": "blocked",
+        "critical": true
+      },
+      {
+        "port": 1434,
+        "service": "SQL Browser",
+        "state": "blocked",
+        "critical": false
+      },
+      {
+        "port": 1521,
+        "service": "Oracle",
+        "state": "blocked",
+        "critical": true
+      },
+      {
+        "port": 2049,
+        "service": "NFS",
+        "state": "blocked",
+        "critical": false
+      },
+      {
+        "port": 2181,
+        "service": "ZooKeeper",
+        "state": "blocked",
+        "critical": false
+      },
+      {
+        "port": 2375,
+        "service": "Docker",
+        "state": "blocked",
+        "critical": false
+      },
+      {
+        "port": 2376,
+        "service": "Docker TLS",
+        "state": "blocked",
+        "critical": false
+      },
+      {
+        "port": 3260,
+        "service": "iSCSI",
+        "state": "blocked",
+        "critical": false
+      },
+      {
+        "port": 3306,
+        "service": "MySQL",
+        "state": "blocked",
+        "critical": true
+      },
+      {
+        "port": 3389,
+        "service": "RDP 远程桌面",
+        "state": "blocked",
+        "critical": true
+      },
+      {
+        "port": 3690,
+        "service": "SVN",
+        "state": "blocked",
+        "critical": false
+      },
+      {
+        "port": 4444,
+        "service": "木马常用",
+        "state": "blocked",
+        "critical": true
+      },
+      {
+        "port": 4848,
+        "service": "GlassFish",
+        "state": "blocked",
+        "critical": false
+      },
+      {
+        "port": 4899,
+        "service": "Radmin",
+        "state": "blocked",
+        "critical": true
+      },
+      {
+        "port": 5432,
+        "service": "PostgreSQL",
+        "state": "blocked",
+        "critical": true
+      },
+      {
+        "port": 5631,
+        "service": "pcAnywhere",
+        "state": "blocked",
+        "critical": false
+      },
+      {
+        "port": 5632,
+        "service": "pcAnywhere-DATA",
+        "state": "blocked",
+        "critical": false
+      },
+      {
+        "port": 5900,
+        "service": "VNC",
+        "state": "blocked",
+        "critical": true
+      },
+      {
+        "port": 5901,
+        "service": "VNC-1",
+        "state": "blocked",
+        "critical": false
+      },
+      {
+        "port": 5902,
+        "service": "VNC-2",
+        "state": "blocked",
+        "critical": false
+      },
+      {
+        "port": 5903,
+        "service": "VNC-3",
+        "state": "blocked",
+        "critical": false
+      },
+      {
+        "port": 5904,
+        "service": "VNC-4",
+        "state": "blocked",
+        "critical": false
+      },
+      {
+        "port": 5905,
+        "service": "VNC-5",
+        "state": "blocked",
+        "critical": false
+      },
+      {
+        "port": 5906,
+        "service": "VNC-6",
+        "state": "blocked",
+        "critical": false
+      },
+      {
+        "port": 5907,
+        "service": "VNC-7",
+        "state": "blocked",
+        "critical": false
+      },
+      {
+        "port": 5908,
+        "service": "VNC-8",
+        "state": "blocked",
+        "critical": false
+      },
+      {
+        "port": 5909,
+        "service": "VNC-9",
+        "state": "blocked",
+        "critical": false
+      },
+      {
+        "port": 5984,
+        "service": "CouchDB",
+        "state": "blocked",
+        "critical": false
+      },
+      {
+        "port": 5985,
+        "service": "WinRM",
+        "state": "blocked",
+        "critical": true
+      },
+      {
+        "port": 5986,
+        "service": "WinRM TLS",
+        "state": "blocked",
+        "critical": false
+      },
+      {
+        "port": 6129,
+        "service": "DameWare",
+        "state": "blocked",
+        "critical": false
+      },
+      {
+        "port": 6379,
+        "service": "Redis",
+        "state": "blocked",
+        "critical": true
+      },
+      {
+        "port": 7000,
+        "service": "WebLogic",
+        "state": "blocked",
+        "critical": false
+      },
+      {
+        "port": 7001,
+        "service": "WebLogic-SSL",
+        "state": "blocked",
+        "critical": false
+      },
+      {
+        "port": 7002,
+        "service": "WebLogic",
+        "state": "blocked",
+        "critical": false
+      },
+      {
+        "port": 7199,
+        "service": "Cassandra JMX",
+        "state": "blocked",
+        "critical": false
+      },
+      {
+        "port": 7778,
+        "service": "恶意程序常用",
+        "state": "blocked",
+        "critical": false
+      },
+      {
+        "port": 8000,
+        "service": "HTTP 备用",
+        "state": "blocked",
+        "critical": false
+      },
+      {
+        "port": 8069,
+        "service": "Odoo",
+        "state": "blocked",
+        "critical": false
+      },
+      {
+        "port": 8080,
+        "service": "HTTP 代理",
+        "state": "blocked",
+        "critical": false
+      },
+      {
+        "port": 8443,
+        "service": "HTTPS 备用",
+        "state": "blocked",
+        "critical": false
+      },
+      {
+        "port": 9042,
+        "service": "Cassandra",
+        "state": "blocked",
+        "critical": false
+      },
+      {
+        "port": 9090,
+        "service": "管理面板",
+        "state": "blocked",
+        "critical": false
+      },
+      {
+        "port": 9160,
+        "service": "Cassandra Thrift",
+        "state": "blocked",
+        "critical": false
+      },
+      {
+        "port": 9200,
+        "service": "Elasticsearch",
+        "state": "blocked",
+        "critical": false
+      },
+      {
+        "port": 9300,
+        "service": "Elasticsearch 集群",
+        "state": "blocked",
+        "critical": false
+      },
+      {
+        "port": 10050,
+        "service": "Zabbix Agent",
+        "state": "blocked",
+        "critical": false
+      },
+      {
+        "port": 10051,
+        "service": "Zabbix Server",
+        "state": "blocked",
+        "critical": false
+      },
+      {
+        "port": 11211,
+        "service": "Memcached",
+        "state": "blocked",
+        "critical": true
+      },
+      {
+        "port": 27017,
+        "service": "MongoDB",
+        "state": "blocked",
+        "critical": true
+      },
+      {
+        "port": 27018,
+        "service": "MongoDB 副本",
+        "state": "blocked",
+        "critical": false
+      },
+      {
+        "port": 50000,
+        "service": "SAP",
+        "state": "blocked",
+        "critical": false
+      },
+      {
+        "port": 50050,
+        "service": "SAP 管理",
+        "state": "blocked",
+        "critical": false
+      },
+      {
+        "port": 50070,
+        "service": "HDFS NameNode",
+        "state": "blocked",
+        "critical": false
+      }
+    ]
+  },
+  "risk": {
+    "score": 0,
+    "level": "low",
+    "criticalCount": 0,
+    "criticalExposed": [],
+    "exposedPorts": []
+  }
+}

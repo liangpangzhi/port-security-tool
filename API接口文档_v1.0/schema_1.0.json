@@ -1,0 +1,93 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "port-security-tool.device-report/1.0",
+  "title": "本机安全数据上报文档",
+  "type": "object",
+  "required": ["schema", "schemaVersion", "reportId", "collectedAt", "agent", "device", "ports", "risk"],
+  "properties": {
+    "schema":        { "type": "string", "const": "port-security-tool.device-report" },
+    "schemaVersion": { "type": "string", "example": "1.0" },
+    "reportId":      { "type": "string", "description": "本次上报唯一标识（32 位十六进制），服务端据此做幂等去重" },
+    "collectedAt":   { "type": "string", "format": "date-time", "description": "带时区偏移的采集时间" },
+    "collectedAtText": { "type": "string", "description": "本地可读时间 yyyy-MM-dd HH:mm:ss" },
+    "agent": {
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "version": { "type": "string", "example": "1.2.0" },
+        "build": { "type": "string" },
+        "elevated": { "type": "boolean" },
+        "osArch": { "type": "string" },
+        "runtime": { "type": "string" }
+      }
+    },
+    "device": {
+      "type": "object",
+      "required": ["deviceId", "computerName"],
+      "properties": {
+        "deviceId": { "type": "string", "description": "SN + 主 MAC + 计算机名的哈希，跨次上报保持稳定" },
+        "computerName": { "type": "string" },
+        "currentUser": { "type": "string" },
+        "domain": { "type": "string" },
+        "serialNumber": { "type": "string" },
+        "osCaption": { "type": "string" },
+        "osVersion": { "type": "string" },
+        "cpu": { "type": "object", "properties": {
+          "model": { "type": "string" },
+          "physicalCores": { "type": "integer" },
+          "logicalCores": { "type": "integer" },
+          "currentMHz": { "type": ["number", "null"] },
+          "maxMHz": { "type": ["number", "null"] } } },
+        "memory": { "type": "object", "properties": {
+          "moduleCount": { "type": "integer" },
+          "totalGB": { "type": ["number", "null"] },
+          "detail": { "type": "string" } } },
+        "board": { "type": "object", "properties": {
+          "manufacturer": { "type": "string" },
+          "product": { "type": "string" },
+          "serialNumber": { "type": "string" } } },
+        "bios": { "type": "object", "properties": {
+          "manufacturer": { "type": "string" },
+          "version": { "type": "string" },
+          "releaseDate": { "type": "string" } } },
+        "disks": { "type": "object", "properties": {
+          "count": { "type": "integer" },
+          "detail": { "type": "string" },
+          "partitions": { "type": "string" } } },
+        "network": { "type": "object", "properties": {
+          "primaryMac": { "type": "string" },
+          "addresses": { "type": "array", "items": { "type": "object", "properties": {
+            "adapter": { "type": "string" },
+            "address": { "type": "string" },
+            "prefixLength": { "type": "integer" },
+            "mac": { "type": "string" },
+            "primary": { "type": "boolean" } } } },
+          "adapters": { "type": "string" } } }
+      }
+    },
+    "ports": {
+      "type": "object",
+      "properties": {
+        "policy": { "type": "string", "example": "high-risk-84" },
+        "total": { "type": "integer" },
+        "blocked": { "type": "integer" },
+        "exposed": { "type": "integer" },
+        "items": { "type": "array", "items": { "type": "object", "properties": {
+          "port": { "type": "integer" },
+          "service": { "type": "string" },
+          "state": { "type": "string", "enum": ["blocked", "exposed"] },
+          "critical": { "type": "boolean" } } } }
+      }
+    },
+    "risk": {
+      "type": "object",
+      "properties": {
+        "score": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "level": { "type": "string", "enum": ["low", "medium", "high"] },
+        "criticalCount": { "type": "integer" },
+        "criticalExposed": { "type": "array", "items": { "type": "integer" } },
+        "exposedPorts": { "type": "array", "items": { "type": "integer" } }
+      }
+    }
+  }
+}

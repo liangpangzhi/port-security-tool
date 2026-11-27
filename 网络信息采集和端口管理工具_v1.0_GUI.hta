@@ -1,0 +1,2265 @@
+﻿<html>
+<head>
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>网络信息采集和端口管理工具 v1.0 GUI</title>
+<HTA:APPLICATION
+  ID="SecTool"
+  APPLICATIONNAME="网络信息采集和端口管理工具"
+  VERSION="9.0"
+  BORDER="none"
+  CAPTION="no"
+  SCROLL="no"
+  SHOWINTASKBAR="yes"
+  SINGLEINSTANCE="yes"
+  SYSMENU="no"
+  WINDOWSTATE="normal"
+  CONTEXTMENU="no"
+  SELECTION="no"
+/>
+<style>
+* { box-sizing: border-box; }
+html, body {
+  margin:0; padding:0; width:100%; height:100%; overflow:hidden;
+  background:#06101d; color:#dbe9f7;
+  font-family:"Microsoft YaHei","Segoe UI",Arial,sans-serif;
+  font-size:13px;
+}
+body::before {
+  content:""; position:fixed; left:0; top:0; right:0; bottom:0; pointer-events:none;
+  background:
+    radial-gradient(900px 500px at 85% -10%, rgba(34,211,238,.10), transparent 60%),
+    radial-gradient(700px 500px at 0% 110%, rgba(59,130,246,.10), transparent 60%);
+}
+#app { position:relative; height:100%; display:flex; flex-direction:column; }
+
+/* ---------- top bar ---------- */
+#topbar {
+  height:66px; flex:none; display:flex; align-items:center; padding:0 18px;
+  background:linear-gradient(90deg,#0b1c30 0%,#0a2233 55%,#0b1c30 100%);
+  border-bottom:1px solid rgba(34,211,238,.22);
+  box-shadow:0 2px 18px rgba(0,0,0,.45); cursor:default;
+  -ms-user-select:none; user-select:none;
+}
+.brand { display:flex; align-items:center; min-width:360px; }
+.logo {
+  width:38px; height:38px; margin-right:12px; position:relative; flex:none;
+}
+.brand h1 { margin:0; font-size:17px; letter-spacing:1px; font-weight:600; color:#eaf6ff; }
+.brand .sub { margin-top:3px; font-size:11px; color:#5f88a8; letter-spacing:1.6px; }
+.topchips { margin-left:auto; display:flex; align-items:center; gap:8px; }
+.chip {
+  padding:5px 11px; border-radius:14px; font-size:11px; white-space:nowrap;
+  border:1px solid rgba(120,170,210,.22); background:rgba(12,32,52,.7); color:#95b8d4;
+}
+.chip b { font-weight:600; }
+.chip.ok { border-color:rgba(52,211,153,.35); color:#5ee0b0; }
+.chip.warn { border-color:rgba(251,191,36,.35); color:#f6c85f; }
+.chip.err { border-color:rgba(244,63,94,.4); color:#ff7d92; }
+.winbtn {
+  width:32px; height:30px; margin-left:6px; border:1px solid rgba(120,170,210,.2);
+  background:rgba(10,28,46,.7); color:#9fc0da; border-radius:5px; cursor:pointer;
+  font-size:14px; line-height:26px; text-align:center;
+}
+.winbtn:hover { background:rgba(34,211,238,.14); color:#fff; border-color:rgba(34,211,238,.45); }
+.winbtn.close:hover { background:rgba(244,63,94,.25); border-color:rgba(244,63,94,.6); color:#fff; }
+
+/* ---------- body ---------- */
+#body { flex:1; min-height:0; position:relative; }
+#sidebar {
+  position:absolute; left:0; top:0; bottom:0; width:214px; padding:18px 0 12px 0;
+  background:linear-gradient(180deg,rgba(9,24,40,.96),rgba(7,18,32,.96));
+  border-right:1px solid rgba(34,211,238,.12);
+}
+.nav-title { padding:0 18px 10px; font-size:10px; letter-spacing:2px; color:#45647f; }
+.nav {
+  display:block; width:100%; height:43px; padding:0 16px 0 18px; border:0; border-left:3px solid transparent;
+  background:transparent; color:#8aa9c4; text-align:left; cursor:pointer; font-size:13px;
+  font-family:inherit; transition:all .15s;
+}
+.nav .ic { display:inline-block; width:22px; font-size:15px; color:#56809e; vertical-align:middle; }
+.nav:hover { background:rgba(34,211,238,.06); color:#cbe6f7; }
+.nav.active {
+  background:linear-gradient(90deg,rgba(34,211,238,.16),rgba(34,211,238,.01));
+  border-left-color:#22d3ee; color:#eafaff; font-weight:600;
+}
+.nav.active .ic { color:#22d3ee; }
+.nav-sub { padding:14px 18px 0; font-size:10px; color:#3d5b74; line-height:1.8; letter-spacing:1px; }
+#content { position:absolute; left:214px; right:0; top:0; bottom:0; overflow:auto; padding:22px 26px 30px; }
+::-webkit-scrollbar { width:8px; height:8px; }
+::-webkit-scrollbar-thumb { background:#204765; border-radius:4px; }
+::-webkit-scrollbar-track { background:transparent; }
+
+.page { display:none; animation:fade .25s ease; }
+.page.active { display:block; }
+@keyframes fade { from { opacity:0; transform:translateY(6px);} to {opacity:1; transform:none;} }
+.page-head { margin-bottom:18px; }
+.page-head h2 { margin:0 0 5px; font-size:21px; font-weight:600; color:#eaf6ff; letter-spacing:.5px; }
+.page-head p { margin:0; color:#6e93b2; font-size:12px; }
+
+.grid { display:flex; flex-wrap:wrap; gap:14px; }
+.card {
+  background:linear-gradient(160deg,rgba(18,40,63,.9),rgba(11,27,44,.9));
+  border:1px solid rgba(86,140,180,.20); border-radius:10px; padding:16px 18px;
+  box-shadow:0 6px 20px rgba(0,0,0,.25); position:relative; overflow:hidden;
+}
+.card::before {
+  content:""; position:absolute; left:0; top:0; width:46px; height:2px;
+  background:linear-gradient(90deg,#22d3ee,transparent);
+}
+.card h3 { margin:0 0 8px; font-size:14px; color:#dff1ff; font-weight:600; }
+.card p { margin:0 0 10px; font-size:12px; color:#88a9c4; line-height:1.7; }
+.card .tag {
+  display:inline-block; padding:2px 8px; border-radius:10px; font-size:10px; margin-right:6px; margin-bottom:8px;
+  border:1px solid rgba(34,211,238,.3); color:#67dcea; background:rgba(34,211,238,.07);
+}
+.card .tag.red { border-color:rgba(244,63,94,.4); color:#ff8095; background:rgba(244,63,94,.08); }
+.card .tag.amber { border-color:rgba(251,191,36,.4); color:#f5c86a; background:rgba(251,191,36,.08); }
+.card .tag.green { border-color:rgba(52,211,153,.4); color:#5fe0b2; background:rgba(52,211,153,.08); }
+.w-sm { width:262px; }
+.w-md { width:340px; }
+.w-lg { width:100%; }
+
+/* ---------- 关于页 ---------- */
+.about-hero { display:flex; flex-direction:column; align-items:center; text-align:center; padding:26px 18px 20px; }
+.about-logo {
+  width:86px; height:86px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+  font-size:40px; color:#7ff0ff; margin-bottom:14px;
+  background:radial-gradient(circle at 50% 42%, rgba(34,211,238,.24), rgba(8,22,38,.92) 72%);
+  border:1px solid rgba(34,211,238,.42);
+  box-shadow:0 0 26px rgba(34,211,238,.26), inset 0 0 20px rgba(34,211,238,.14);
+}
+.about-name { margin:0 0 6px; font-size:17px; color:#eaf8ff; font-weight:600; letter-spacing:.5px; }
+.about-sub { font-family:Consolas,monospace; font-size:10px; letter-spacing:2.2px; color:#4f7f9c; margin-bottom:13px; }
+.ver-badge {
+  display:inline-block; padding:4px 15px; border-radius:12px; margin-bottom:14px;
+  font-family:Consolas,monospace; font-size:12px; letter-spacing:1px;
+  color:#8ff3ff; background:rgba(34,211,238,.10); border:1px solid rgba(34,211,238,.38);
+}
+.kv .kvrow { display:flex; padding:8px 0; border-bottom:1px dashed rgba(86,140,180,.16); font-size:12px; }
+.kv .kvrow:last-child { border-bottom:none; }
+.kv .k { width:96px; flex:none; color:#6e93b2; }
+.kv .v { flex:1; color:#d7ebfa; word-break:break-all; }
+.kv .v.mono { font-family:Consolas,monospace; color:#8fe6f5; }
+.modlist { display:flex; flex-wrap:wrap; gap:8px; }
+.modlist span {
+  padding:5px 10px; border-radius:5px; font-size:11px;
+  background:rgba(34,211,238,.07); border:1px solid rgba(34,211,238,.22); color:#9fdce8;
+}
+.copr { font-size:12px; line-height:1.9; color:#88a9c4; margin:0; }
+.copr b { color:#cfe7f8; font-weight:600; }
+
+.btn {
+  display:inline-block; padding:8px 15px; border-radius:6px; border:1px solid rgba(34,211,238,.35);
+  background:linear-gradient(180deg,rgba(34,211,238,.16),rgba(34,211,238,.06));
+  color:#a9eef8; cursor:pointer; font-size:12px; font-family:inherit; transition:all .15s;
+}
+.btn:hover { background:rgba(34,211,238,.28); color:#fff; box-shadow:0 0 14px rgba(34,211,238,.25); }
+.btn.primary { background:linear-gradient(180deg,#0e7490,#0e5a70); border-color:#22d3ee; color:#eafcff; font-weight:600; }
+.btn.primary:hover { background:linear-gradient(180deg,#0891b2,#0e7490); }
+/* 语义色：红 = 封禁/关闭/加固，绿 = 启用/恢复/放行 */
+.btn.danger { border-color:rgba(244,63,94,.55); color:#ffb0be; background:linear-gradient(180deg,rgba(244,63,94,.20),rgba(244,63,94,.10)); }
+.btn.danger:hover { background:rgba(244,63,94,.32); color:#fff; box-shadow:0 0 14px rgba(244,63,94,.30); }
+.btn.enable { border-color:rgba(52,211,153,.55); color:#8dedc6; background:linear-gradient(180deg,rgba(52,211,153,.20),rgba(52,211,153,.10)); }
+.btn.enable:hover { background:rgba(52,211,153,.32); color:#fff; box-shadow:0 0 14px rgba(52,211,153,.30); }
+.btn.ghost { border-color:rgba(120,170,210,.25); color:#9dbdd6; background:rgba(255,255,255,.02); }
+.btn.sm { padding:5px 10px; font-size:11px; }
+/* 工具条按钮：统一高度与最小宽度，视觉等宽对齐 */
+.row.btnrow .btn { min-width:132px; text-align:center; }
+.btn:disabled { opacity:.45; cursor:not-allowed; }
+
+input[type=text], input[type=password] {
+  background:rgba(4,14,25,.8); border:1px solid rgba(100,150,190,.28); border-radius:6px;
+  color:#dff1ff; padding:7px 10px; font-family:inherit; font-size:12px; outline:none;
+}
+input[type=text]:focus { border-color:#22d3ee; box-shadow:0 0 0 2px rgba(34,211,238,.12); }
+.hint { font-size:11px; color:#5f83a1; line-height:1.7; }
+/* 表单行：左侧标签固定宽度，输入框撑满 */
+.field { display:flex; align-items:center; gap:10px; margin-bottom:9px; }
+.field > label { width:86px; flex:none; color:#6e93b2; font-size:12px; }
+.field input[type=text], .field input[type=password] { flex:1; min-width:0; }
+.switchwrap { display:inline-flex; align-items:center; gap:8px; font-size:12px; color:#9dbdd6; }
+.switchwrap input { width:15px; height:15px; accent-color:#22d3ee; cursor:pointer; }
+.state-on { color:#6fe0b8; }
+.state-off { color:#ff9aab; }
+.divider { height:1px; background:rgba(100,150,190,.14); margin:14px 0; }
+
+/* stat cards */
+.stat { width:calc(25% - 11px); min-width:200px; padding:15px 17px; }
+.stat .label { font-size:11px; color:#6f92ae; letter-spacing:1px; }
+.stat .value { font-size:26px; margin:8px 0 2px; font-weight:600; color:#22d3ee; font-family:"Consolas",monospace; }
+.stat .value.green { color:#34d399; } .stat .value.red { color:#fb7185; } .stat .value.amber { color:#fbbf24; }
+.stat .foot { font-size:10px; color:#4f6f8a; }
+
+.hero {
+  width:100%; margin-top:14px; padding:20px 22px;
+  background:linear-gradient(110deg,rgba(8,80,105,.55),rgba(12,35,58,.85) 55%,rgba(8,60,90,.45));
+  border:1px solid rgba(34,211,238,.35); border-radius:10px;
+  display:flex; align-items:center; gap:20px;
+}
+.hero .hicon { font-size:34px; color:#22d3ee; width:50px; text-align:center; text-shadow:0 0 18px rgba(34,211,238,.5); }
+.hero .htext { flex:1; }
+.hero h3 { margin:0 0 6px; font-size:17px; color:#eafaff; }
+.hero p { margin:0; font-size:12px; color:#8fc4d9; line-height:1.7; }
+.hero .btn { padding:11px 22px; font-size:13px; }
+
+table.tbl { width:100%; border-collapse:collapse; font-size:12px; }
+table.tbl th { text-align:left; padding:7px 9px; color:#6f92ae; font-weight:500; border-bottom:1px solid rgba(100,150,190,.2); font-size:11px; }
+table.tbl td { padding:6px 9px; border-bottom:1px solid rgba(100,150,190,.08); color:#bcd6e9; }
+table.tbl tr:hover td { background:rgba(34,211,238,.04); }
+.portlist { display:flex; flex-wrap:wrap; gap:6px; max-height:185px; overflow:auto; padding-right:4px; }
+.port {
+  padding:3px 8px; border-radius:4px; font-family:Consolas,monospace; font-size:11px;
+  background:rgba(120,170,210,.07); color:#9dbdd6; border:1px solid rgba(120,170,210,.22);
+}
+/* 封堵情况：绿 = 已封堵，红 = 未封堵 */
+/* 封堵状态：红 = 已封堵，绿 = 未封堵（开放） */
+.port.blocked { background:rgba(244,63,94,.16); color:#ff9aab; border-color:rgba(244,63,94,.45); }
+.port.exposed { background:rgba(52,211,153,.13); color:#6fe0b8; border-color:rgba(52,211,153,.40); }
+/* 保留端口：虚线框（放最后，只改边框样式，不覆盖状态色） */
+.port.kept { border-style:dashed; }
+pre.console {
+  margin:0; padding:12px 14px; min-height:120px; max-height:300px; overflow:auto;
+  background:rgba(3,11,20,.85); border:1px solid rgba(100,150,190,.16); border-radius:6px;
+  color:#9fc5dd; font-family:Consolas,"Courier New",monospace; font-size:11.5px; line-height:1.65; white-space:pre-wrap;
+}
+.row { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+.row > input[type=text] { min-width:180px; }
+.switchrow { display:flex; align-items:center; justify-content:space-between; padding:8px 0; border-bottom:1px solid rgba(100,150,190,.08); }
+.switchrow:last-child { border-bottom:0; }
+.switchrow .nm { color:#cfe4f4; font-size:12px; }
+.switchrow .ds { color:#5f83a1; font-size:10.5px; margin-top:2px; }
+
+/* ---------- log bar ---------- */
+#logbar {
+  height:156px; flex:none; border-top:1px solid rgba(34,211,238,.18);
+  background:rgba(4,13,23,.96); display:flex; flex-direction:column;
+}
+#logbar.collapsed { height:34px; }
+#loghead {
+  height:34px; flex:none; display:flex; align-items:center; padding:0 16px;
+  background:linear-gradient(90deg,rgba(10,32,52,.9),rgba(8,22,38,.9));
+  border-bottom:1px solid rgba(100,150,190,.12);
+}
+#loghead .t { font-size:11px; color:#7fa8c5; letter-spacing:1.5px; }
+#loghead .dot { width:7px; height:7px; border-radius:50%; background:#22d3ee; margin-right:9px; box-shadow:0 0 8px #22d3ee; }
+#loghead .sp { margin-left:auto; }
+#logbody { flex:1; overflow:auto; padding:8px 16px; font-family:Consolas,"Courier New",monospace; font-size:11.5px; line-height:1.6; }
+.lg { color:#8fb4cf; } .lg .ts { color:#43647f; }
+.lg.ok { color:#5fe0b2; } .lg.warn { color:#f6c85f; } .lg.err { color:#ff7d92; } .lg.hd { color:#22d3ee; }
+
+/* ---------- 远程桌面 ---------- */
+.rtable { width:100%; border-collapse:collapse; font-size:12px; }
+.rtable th { text-align:left; font-weight:500; color:#6e93b2; font-size:11px; letter-spacing:.4px;
+             padding:7px 8px; border-bottom:1px solid rgba(34,211,238,.18); white-space:nowrap; }
+.rtable td { padding:6px 8px; border-bottom:1px solid rgba(100,150,190,.08); color:#cfe4f4; white-space:nowrap; }
+.rtable tr:hover td { background:rgba(34,211,238,.055); }
+.rtable td.mono { font-family:Consolas,"Courier New",monospace; color:#9dbdd6; font-size:11.5px; }
+.tag { display:inline-block; padding:1px 7px; border-radius:9px; font-size:10.5px; line-height:16px; border:1px solid; }
+.tag.on  { color:#6fe0b8; border-color:rgba(111,224,184,.45); background:rgba(111,224,184,.10); }
+.tag.off { color:#ff9aab; border-color:rgba(255,154,171,.40); background:rgba(255,154,171,.10); }
+.tag.na  { color:#5f83a1; border-color:rgba(95,131,161,.35); }
+.rscroll { max-height:320px; overflow:auto; margin-top:8px; border-top:1px solid rgba(34,211,238,.10); }
+
+/* ---------- 端口点选封禁 ---------- */
+.portlist.picking .port { cursor:pointer; transition:background .12s, border-color .12s, color .12s; }
+.portlist.picking .port:hover { border-color:#22d3ee; background:rgba(34,211,238,.18); color:#dff6ff; }
+.portlist.picking .port.blocked:hover { border-color:#ff9aab; background:rgba(244,63,94,.26); }
+.btn.picking { border-color:rgba(34,211,238,.8); background:rgba(34,211,238,.18); color:#a9ecff; }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <div id="topbar">
+    <div class="brand">
+      <svg class="logo" viewBox="0 0 48 48">
+        <path d="M24 3 42 12v12c0 11-7.5 18.5-18 21C13.5 42.5 6 35 6 24V12z" fill="none" stroke="#22d3ee" stroke-width="2"/>
+        <path d="M24 9 36 15v9c0 7.5-5 12.7-12 14.6C17 36.7 12 31.5 12 24v-9z" fill="rgba(34,211,238,.10)" stroke="rgba(34,211,238,.45)" stroke-width="1"/>
+        <path d="m17.5 24 4.5 4.5 9-9.5" fill="none" stroke="#22d3ee" stroke-width="2.5" stroke-linecap="round"/>
+      </svg>
+      <div>
+        <h1>网络信息采集和端口管理工具</h1>
+        <div class="sub">INFORMATION COLLECTION &amp; PORT MANAGEMENT &nbsp;/&nbsp; v1.0</div>
+      </div>
+    </div>
+    <div class="topchips">
+      <span class="chip" id="chipAdmin">权限检测中</span>
+      <span class="chip" id="chipFW">防火墙 —</span>
+      <span class="chip" id="chipOS">—</span>
+      <button class="winbtn" onclick="window.minimize()" title="最小化">—</button>
+      <button class="winbtn close" onclick="window.close()" title="退出">×</button>
+    </div>
+  </div>
+
+  <div id="body">
+    <div id="sidebar">
+      <div class="nav-title">控制台 / CONSOLE</div>
+      <button class="nav active" data-p="dash"><span class="ic">◈</span>安全总览</button>
+      <button class="nav" data-p="block"><span class="ic">⛨</span>预置封堵</button>
+      <button class="nav" data-p="fw"><span class="ic">▤</span>端口与防火墙</button>
+      <button class="nav" data-p="svc"><span class="ic">⚙</span>共享与服务</button>
+      <button class="nav" data-p="ip"><span class="ic">◎</span>IP 白名单</button>
+      <button class="nav" data-p="pf"><span class="ic">⇄</span>端口转发</button>
+      <button class="nav" data-p="rdp"><span class="ic">▣</span>远程桌面</button>
+      <button class="nav" data-p="collect"><span class="ic">⇪</span>数据采集</button>
+      <button class="nav" data-p="about"><span class="ic">ⓘ</span>关于</button>
+      <div class="nav-sub">SECURITY OPERATIONS CENTER<br>内网终端 · 高危端口管控<br><span style="color:#3f6a86">成都局集团公司党校（职工培训基地）设备信息科</span></div>
+    </div>
+
+    <div id="content">
+
+      <!-- ============ 安全总览 ============ -->
+      <div class="page active" id="p-dash">
+        <div class="page-head"><h2>安全总览</h2><p>实时掌握终端暴露面，一键执行预置高危漏洞封堵策略。</p></div>
+        <div class="grid">
+          <div class="card stat"><div class="label">管理员权限</div><div class="value" id="stAdmin">—</div><div class="foot">策略执行必要条件</div></div>
+          <div class="card stat"><div class="label">防火墙状态</div><div class="value" id="stFW">—</div><div class="foot">所有配置文件</div></div>
+          <div class="card stat"><div class="label">监听端口</div><div class="value amber" id="stListen">—</div><div class="foot">TCP LISTENING</div></div>
+          <div class="card stat"><div class="label">高危端口暴露</div><div class="value red" id="stDanger">—</div><div class="foot">命中预置封堵清单</div></div>
+        </div>
+        <div class="hero">
+          <div class="hicon">⛨</div>
+          <div class="htext">
+            <h3>一键封堵高危漏洞</h3>
+            <p>关闭默认共享 / 远程桌面 / NetBIOS，禁用 SMBv1，NTLM 强制 NTLMv2，并对预置的 80+ 个高危端口下发防火墙入站阻断规则。</p>
+          </div>
+          <button class="btn danger" onclick="profileAll()">立即执行</button>
+          <button class="btn ghost" onclick="scanPorts(); refreshStats()">刷新态势</button>
+        </div>
+        <div class="grid" style="margin-top:14px">
+          <div class="card w-md">
+            <h3>预置策略覆盖</h3>
+            <p>终端防勒索（MS17-010 / 永恒之蓝）、远程入侵封堵、弱服务收敛、数据库暴露面收敛，均已在「预置封堵」页就绪。</p>
+            <button class="btn sm" onclick="go('block')">查看预置策略 →</button>
+          </div>
+          <div class="card w-md">
+            <h3>操作前须知</h3>
+            <p>封堵会真实修改系统服务、注册表与防火墙规则。若本机需对外提供 SMB / FTP / 数据库服务，请先在「预置封堵」页填写保留端口，或使用对应的服务器模式。</p>
+          </div>
+        </div>
+
+        <div class="card w-lg" style="margin-top:14px">
+          <div class="row" style="margin-bottom:12px">
+            <h3 style="margin:0;flex:1">本机开放端口扫描与解释</h3>
+            <button class="btn primary" onclick="scanAllPorts()">扫描全部开放端口</button>
+            <button class="btn sm ghost" onclick="exportPortScan()">导出结果</button>
+          </div>
+          <p class="hint">列出本机所有 TCP / UDP 监听端口、对应进程与 PID，并给出端口用途解释与风险提示。点击行可按端口名筛选。</p>
+          <div style="max-height:330px;overflow:auto;border:1px solid rgba(100,150,190,.16);border-radius:6px">
+            <table class="tbl" id="allPortsTable">
+              <thead><tr><th style="width:78px">协议</th><th style="width:78px">端口</th><th style="width:130px">进程</th><th style="width:70px">PID</th><th>用途解释</th><th style="width:76px">风险</th></tr></thead>
+              <tbody id="allPortsBody"><tr><td colspan="6" style="color:#5f83a1;text-align:center;padding:18px">点击「扫描全部开放端口」开始</td></tr></tbody>
+            </table>
+          </div>
+          <div class="hint" id="allPortsSummary" style="margin-top:10px"></div>
+        </div>
+      </div>
+
+      <!-- ============ 预置封堵 ============ -->
+      <div class="page" id="p-block">
+        <div class="page-head"><h2>预置高危漏洞封堵</h2><p>按场景选择策略，或一键执行全量加固。策略逻辑源自原 v8.29 批处理，已完整迁移。</p></div>
+        <div class="card w-lg" style="margin-bottom:14px">
+          <div class="row">
+            <span style="color:#9fc0da">保留端口（本机仍需对外提供服务的端口，英文逗号分隔，留空=全封）：</span>
+            <input type="text" id="keepPorts" placeholder="例如：3306,8080" style="width:220px">
+            <span class="hint">提示：填 445,139 可保留 SMB；填 20,21 可保留 FTP。</span>
+          </div>
+        </div>
+
+        <div class="grid">
+          <div class="card w-md">
+            <div><span class="tag red">严重</span><span class="tag">勒索防护</span></div>
+            <h3>策略一 · 终端防勒索加固</h3>
+            <p>关闭 445/139、禁用 SMBv1、删除默认共享、强制 SMB 签名与 NTLMv2，阻断 MS17-010 永恒之蓝等基于 SMB 的横向渗透。</p>
+            <button class="btn danger" onclick="profileTerminal()">执行封堵</button>
+          </div>
+          <div class="card w-md">
+            <div><span class="tag red">严重</span><span class="tag">远程入侵</span></div>
+            <h3>策略二 · 远程入口封堵</h3>
+            <p>禁用 3389 远程桌面、22 SSH、23 Telnet、5985/5986 WinRM，关闭 135 RPC 监听面的暴露，收敛远程管理入口。</p>
+            <button class="btn danger" onclick="profileRemote()">执行封堵</button>
+          </div>
+          <div class="card w-md">
+            <div><span class="tag amber">高危</span><span class="tag">弱服务</span></div>
+            <h3>策略三 · 弱服务收敛</h3>
+            <p>禁用 FTP / ICS / DNS / SNMP 服务，关闭 NetBIOS 与 NetBT（137/138/139），阻断匿名共享与弱社区字串风险。</p>
+            <button class="btn danger" onclick="profileService()">执行封堵</button>
+          </div>
+          <div class="card w-md">
+            <div><span class="tag amber">高危</span><span class="tag">数据泄露</span></div>
+            <h3>策略四 · 数据库暴露面收敛</h3>
+            <p>阻断 1433/3306/1521/5432/6379/27017/9200 等数据库与中间件端口入站，并检测未授权访问风险（仅提示，不修改数据库配置）。</p>
+            <button class="btn danger" onclick="profileDB()">执行封堵</button>
+          </div>
+          <div class="card w-md" style="border-color:rgba(34,211,238,.4)">
+            <div><span class="tag green">推荐</span><span class="tag">全量</span></div>
+            <h3>策略五 · 一键全量加固</h3>
+            <p>按原脚本 [C] 客户端模式执行：服务加固 + 防火墙阻断全部预置端口 + 数据库授权检查 + 状态复核，适合普通办公终端。</p>
+            <button class="btn danger" onclick="profileAll()">一键执行全部</button>
+          </div>
+          <div class="card w-md">
+            <div><span class="tag">专用</span><span class="tag">服务器</span></div>
+            <h3>共享 / FTP 服务器模式</h3>
+            <p>本机需对外提供文件时，使用白名单模式放行指定 IP（原脚本 [S]/[F]），在保留必要服务的同时封堵其余高危端口。</p>
+            <div class="row" style="margin-top:4px">
+              <button class="btn sm" onclick="go('ip')">SMB 白名单</button>
+              <button class="btn sm" onclick="go('ip')">FTP 白名单</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============ 端口与防火墙 ============ -->
+      <div class="page" id="p-fw">
+        <div class="page-head"><h2>端口与防火墙</h2><p>查看预置高危端口清单与封堵状态；可一键全量封堵，也可在清单中点选单个端口精确封堵。</p></div>
+        <div class="grid">
+          <div class="card w-lg">
+            <div class="row btnrow" style="margin-bottom:12px">
+              <button class="btn danger" onclick="fwBlockAll()">封堵全部高危端口</button>
+            </div>
+            <div class="row btnrow" style="margin-bottom:4px">
+              <button class="btn enable" onclick="restoreCommonPorts()">恢复常用端口</button>
+              <button class="btn enable" onclick="restoreAllPorts()">恢复所有端口</button>
+              <span class="hint" style="margin-left:8px">红色 = 封禁，绿色 = 启用</span>
+            </div>
+          </div>
+          <div class="card w-lg">
+            <div class="row" style="margin-bottom:8px">
+              <button class="btn" onclick="scanBlockStatus()">一键扫描封堵情况</button>
+              <button class="btn" id="portPickBtn" onclick="togglePortPick()" title="开启后单击清单中的端口即封堵，右键单击可解除">点选封禁</button>
+              <span class="hint" id="portStat" style="margin-left:8px">尚未扫描</span>
+            </div>
+            <h3>预置高危端口清单（80+）</h3>
+            <p class="hint" id="portHint">绿色 = 未封堵（端口开放）；红色 = 已封堵；虚线框 = 保留端口（在「预置封堵」页设置）。135 为 RPC 核心端口，仅做防火墙阻断，不停止服务。</p>
+            <p class="hint" id="portPickTip" style="display:none;color:#67dcea">点选模式已开启：单击清单中的端口 → 立即封堵（TCP+UDP 入站）；右键单击 → 解除该端口封堵。</p>
+            <div class="portlist" id="portList"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============ 共享与服务 ============ -->
+      <div class="page" id="p-svc">
+        <div class="page-head"><h2>共享与服务加固</h2><p>逐项管理系统服务与共享配置，每一项都提供对应的「恢复」按钮，可随时逐项还原。</p></div>
+        <div class="grid">
+          <div class="card w-md">
+            <h3>危险服务开关</h3>
+            <div class="switchrow"><div><div class="nm">远程桌面 3389</div><div class="ds">Terminal Server / fDenyTSConnections</div></div><div><button class="btn sm danger" onclick="disableRDP()">关闭</button> <button class="btn sm enable" onclick="restoreRDP()">恢复</button></div></div>
+            <div class="switchrow"><div><div class="nm">SMB Server 445</div><div class="ds">LanmanServer</div></div><div><button class="btn sm danger" onclick="disableSvc('LanmanServer','Server/SMB 服务(445)')">关闭</button> <button class="btn sm enable" onclick="enableSvc('LanmanServer','Server/SMB 服务(445)','auto')">恢复</button></div></div>
+            <div class="switchrow"><div><div class="nm">FTP 20/21</div><div class="ds">FTPSVC</div></div><div><button class="btn sm danger" onclick="disableSvc('FTPSVC','FTP 服务(20/21)')">关闭</button> <button class="btn sm enable" onclick="enableSvc('FTPSVC','FTP 服务(20/21)','demand')">恢复</button></div></div>
+            <div class="switchrow"><div><div class="nm">SSH 22</div><div class="ds">sshd</div></div><div><button class="btn sm danger" onclick="disableSvc('sshd','SSH 服务(22)')">关闭</button> <button class="btn sm enable" onclick="enableSvc('sshd','SSH 服务(22)','demand')">恢复</button></div></div>
+            <div class="switchrow"><div><div class="nm">Telnet 23</div><div class="ds">TlntSvr</div></div><div><button class="btn sm danger" onclick="disableSvc('TlntSvr','Telnet 服务(23)')">关闭</button> <button class="btn sm enable" onclick="enableSvc('TlntSvr','Telnet 服务(23)','demand')">恢复</button></div></div>
+            <div class="switchrow"><div><div class="nm">DNS / ICS 53</div><div class="ds">DNS / SharedAccess</div></div><div><button class="btn sm danger" onclick="disableSvc('DNS','DNS 服务(53)');disableSvc('SharedAccess','ICS 服务(53)')">关闭</button> <button class="btn sm enable" onclick="enableSvc('DNS','DNS 服务(53)','demand');enableSvc('SharedAccess','ICS 服务(53)','demand')">恢复</button></div></div>
+            <div class="switchrow"><div><div class="nm">SNMP 161</div><div class="ds">SNMP</div></div><div><button class="btn sm danger" onclick="disableSvc('SNMP','SNMP 服务(161)')">关闭</button> <button class="btn sm enable" onclick="enableSvc('SNMP','SNMP 服务(161)','demand')">恢复</button></div></div>
+            <div class="switchrow"><div><div class="nm">NetBIOS 137/138/139</div><div class="ds">NetBT</div></div><div><button class="btn sm danger" onclick="killNetBIOS()">关闭</button> <button class="btn sm enable" onclick="restoreNetBIOS()">恢复</button></div></div>
+          </div>
+          <div class="card w-md">
+            <h3>共享与协议加固</h3>
+            <p class="hint">删除 C$/D$/E$/ADMIN$/IPC$ 默认共享并禁止自动重建；禁用 SMBv1；NTLM 强制 NTLMv2。</p>
+            <button class="btn sm danger" onclick="killAutoShare()">删除默认共享</button>
+            <button class="btn sm danger" onclick="killSMBv1()">禁用 SMBv1</button>
+            <button class="btn sm danger" onclick="hardenNTLM()">NTLM 加固</button>
+            <button class="btn sm danger" onclick="smbSignature()">强制 SMB 签名</button>
+            <div class="divider"></div>
+            <h3>IIS FTP 匿名登录</h3>
+            <button class="btn sm danger" onclick="ftpAnon(false)">关闭匿名登录</button>
+            <button class="btn sm enable" onclick="ftpAnon(true)">恢复默认</button>
+          </div>
+          <div class="card w-lg">
+            <h3>服务器模式（放行指定 IP）</h3>
+            <p class="hint">允许 IP 用英文逗号分隔，可写 CIDR，如 192.168.1.10,192.168.1.0/24；拒绝 IP 留空则仅按系统默认拒绝。</p>
+            <div class="row">
+              <span style="width:150px">SMB 允许 IP：</span><input type="text" id="svcSmbAllow" style="width:260px" placeholder="192.168.1.10">
+              <span>拒绝 IP：</span><input type="text" id="svcSmbDeny" style="width:200px" placeholder="可留空">
+              <button class="btn enable" onclick="smbServerMode()">应用 SMB 服务器模式</button>
+            </div>
+            <div class="divider"></div>
+            <div class="row">
+              <span style="width:150px">FTP 允许 IP：</span><input type="text" id="svcFtpAllow" style="width:260px" placeholder="192.168.1.10">
+              <span>拒绝 IP：</span><input type="text" id="svcFtpDeny" style="width:200px" placeholder="可留空">
+              <button class="btn enable" onclick="ftpServerMode()">应用 FTP 服务器模式</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============ IP 白名单 ============ -->
+      <div class="page" id="p-ip">
+        <div class="page-head"><h2>IP 白名单管理</h2><p>管理 SMB / FTP 放行规则中的远程 IP，支持查看、追加与删除。</p></div>
+        <div class="grid">
+          <div class="card w-md">
+            <h3>SMB 445/139 白名单</h3>
+            <pre class="console" id="ipSmbView">—</pre>
+            <div class="divider"></div>
+            <div class="row"><input type="text" id="ipSmbAdd" placeholder="新增 IP，逗号分隔"><button class="btn sm enable" onclick="addRuleIP('Allow_SMB_Share','ipSmbAdd','ipSmbView')">追加</button></div>
+            <div class="row" style="margin-top:8px"><input type="text" id="ipSmbDel" placeholder="删除 IP，逗号分隔"><button class="btn sm danger" onclick="delRuleIP('Allow_SMB_Share','ipSmbDel','ipSmbView')">删除</button></div>
+          </div>
+          <div class="card w-md">
+            <h3>FTP 20/21 白名单</h3>
+            <pre class="console" id="ipFtpView">—</pre>
+            <div class="divider"></div>
+            <div class="row"><input type="text" id="ipFtpAdd" placeholder="新增 IP，逗号分隔"><button class="btn sm enable" onclick="addRuleIP('Allow_FTP_Share','ipFtpAdd','ipFtpView')">追加</button></div>
+            <div class="row" style="margin-top:8px"><input type="text" id="ipFtpDel" placeholder="删除 IP，逗号分隔"><button class="btn sm danger" onclick="delRuleIP('Allow_FTP_Share','ipFtpDel','ipFtpView')">删除</button></div>
+          </div>
+          <div class="card w-lg">
+            <button class="btn" onclick="viewAllIPs()">刷新白名单状态</button>
+            <span class="hint" style="margin-left:10px">若规则不存在，请先到「共享与服务」页应用对应的服务器模式。</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============ 端口转发 ============ -->
+      <div class="page" id="p-pf">
+        <div class="page-head"><h2>SMB 端口转发 / QUIC</h2><p>将 445 统一映射到 10001 端口（原 [P] 功能），支持服务端与客户端两种模式。</p></div>
+        <div class="grid">
+          <div class="card w-md">
+            <h3>服务端 · 一键转发</h3>
+            <p>外部 10001 → 本机 445，自动放行防火墙 10001 端口，并写入记录便于回滚。</p>
+            <button class="btn primary" onclick="pfServer()">添加服务端转发</button>
+          </div>
+          <div class="card w-md">
+            <h3>客户端 · 一键转发</h3>
+            <p>本机 127.0.0.1:445 → 服务器 IP:10001，访问 \\127.0.0.1\共享名 即可。</p>
+            <div class="row"><input type="text" id="pfSrvIp" placeholder="服务器 IP" style="width:180px"><button class="btn primary" onclick="pfClient()">添加客户端转发</button></div>
+          </div>
+          <div class="card w-lg">
+            <h3>转发规则管理</h3>
+            <div class="row" style="margin-bottom:10px">
+              <button class="btn sm" onclick="pfList()">查看转发</button>
+              <button class="btn sm danger" onclick="pfClean()">一键清除两端转发</button>
+              <button class="btn sm ghost" onclick="quicCheck()">检测 QUIC 支持</button>
+              <input type="text" id="pfDelPort" placeholder="删除 listenport" style="width:130px">
+              <input type="text" id="pfDelAddr" placeholder="listenaddress" style="width:130px">
+              <button class="btn sm danger" onclick="pfDel()">删除转发</button>
+            </div>
+            <pre class="console" id="pfOut">等待操作…</pre>
+          </div>
+          <div class="card w-lg">
+            <h3>SMB over QUIC 备用端口（Win11 24H2 / Server 2025）</h3>
+            <div class="row"><input type="text" id="quicPort" placeholder="端口号，默认 10001" style="width:180px"><button class="btn" onclick="quicSet()">设置 QUIC 端口</button></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============ 远程桌面 ============ -->
+      <div class="page" id="p-rdp">
+        <div class="page-head"><h2>局域网远程桌面</h2><p>扫描本网段主机，匹配可远程桌面的客户端；支持直接连接，也支持「需对方确认」的远程请求。</p></div>
+        <div class="grid">
+
+          <div class="card w-lg">
+            <h3>局域网发现</h3>
+            <div class="row">
+              <input type="text" id="rdpCidr" placeholder="192.168.1.0/24 或 192.168.1.1-254" style="width:250px">
+              <button class="btn primary" onclick="rdpScan()">开始扫描</button>
+              <button class="btn ghost" onclick="rdpStop()">停止</button>
+              <span class="hint" id="rdpScanInfo" style="margin-left:4px">选择网段后开始扫描</span>
+            </div>
+            <div class="rscroll">
+              <table class="rtable" id="rdpTable">
+                <thead><tr>
+                  <th>计算机名</th><th>IP 地址</th><th>MAC</th><th>远程桌面</th><th>本工具</th><th>当前用户</th><th>操作</th>
+                </tr></thead>
+                <tbody id="rdpBody"><tr><td colspan="7" class="hint">尚未扫描</td></tr></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="card w-md">
+            <h3>发起连接</h3>
+            <p>在列表里点「连接」，或在此填写地址直接发起。目标 3389 未开放时，用「远程请求」让对方确认后临时放行。</p>
+            <div class="field"><label>目标地址</label><input type="text" id="rdpIp" placeholder="例如 192.168.1.20"></div>
+            <div class="field"><label>用户名</label><input type="text" id="rdpUser" placeholder="域账号，可留空"></div>
+            <div class="field"><label>分辨率</label><input type="text" id="rdpW" value="1600" style="max-width:72px"><span class="hint">×</span><input type="text" id="rdpH" value="900" style="max-width:72px"></div>
+            <div class="field"><label>剪贴板</label><span class="switchwrap"><input type="checkbox" id="rdpClip" checked><span>与远端共享</span></span></div>
+            <div class="field"><label>磁盘映射</label><span class="switchwrap"><input type="checkbox" id="rdpDrives" checked><span>本机盘符可见</span></span></div>
+            <div class="row" style="margin-top:10px">
+              <button class="btn enable" onclick="rdpConnect()">发起远程桌面</button>
+              <button class="btn" onclick="rdpRequest()">远程请求</button>
+            </div>
+            <p class="hint" id="rdpReqState" style="margin-top:9px">请求状态：—</p>
+          </div>
+
+          <div class="card w-md">
+            <h3>响应远程请求（本机）</h3>
+            <p>开启后本机可被局域网内的管理端发现并请求远程桌面：需本机用户点「允许」才临时放行，且只放行请求方那一个 IP。</p>
+            <div class="field"><label>启用响应</label><span class="switchwrap"><input type="checkbox" id="rdpAgent"><span id="rdpAgentTip">未启用</span></span></div>
+            <div class="field"><label>监听端口</label><input type="text" id="rdpAgentPort" value="18761" style="max-width:96px"></div>
+            <div class="field"><label>访问令牌</label><input type="password" id="rdpToken" placeholder="与请求端保持一致"></div>
+            <div class="row" style="margin-top:10px">
+              <button class="btn primary" onclick="saveRdpAgent()">保存并应用</button>
+              <button class="btn danger" onclick="rdpRestoreLocal()">恢复 3389 封堵</button>
+            </div>
+            <p class="hint" id="rdpAgentState" style="margin-top:9px">服务状态：—</p>
+            <p class="hint">放行会临时移除 3389 的封堵规则（Windows 防火墙 block 优先于 allow），受控端可随时点「恢复 3389 封堵」还原。</p>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- ============ 数据采集 ============ -->
+      <div class="page" id="p-collect">
+        <div class="page-head"><h2>本机数据采集</h2><p>采集本机硬件名称、计算机名与端口封堵情况，生成电子表格并上报到指定 IP 的共享目录。</p></div>
+        <div class="grid">
+
+          <div class="card w-md">
+            <h3>上报目标</h3>
+            <p>接收端需事先创建共享文件夹并授予写入权限。表格按「计算机名_采集日期」命名写入该共享目录，当天重复采集只覆盖当天文件；填账号可自动完成共享认证。</p>
+            <div class="field"><label>目标 IP</label><input type="text" id="colIp" placeholder="例如 192.168.1.100"></div>
+            <div class="field"><label>共享名</label><input type="text" id="colShare" placeholder="例如 设备信息采集"></div>
+            <div class="field"><label>用户名</label><input type="text" id="colUser" placeholder="留空则用当前登录凭据"></div>
+            <div class="field"><label>密码</label><input type="password" id="colPass" placeholder="留空表示不修改"></div>
+            <div class="row" style="margin-top:12px">
+              <button class="btn primary" onclick="saveCollectConfig()">保存配置</button>
+              <button class="btn ghost" onclick="openTargetFolder()">打开目标目录</button>
+            </div>
+            <p class="hint" id="colTarget" style="margin-top:9px">当前目标：—</p>
+          </div>
+
+          <div class="card w-md">
+            <h3>采集与上报</h3>
+            <p>手动采集立即执行一次；定时采集在后台运行，窗口最小化到托盘也照常执行。</p>
+            <div class="field">
+              <label>定时采集</label>
+              <span class="switchwrap"><input type="checkbox" id="colAuto"><span id="colAutoTip">未启用</span></span>
+            </div>
+            <div class="field"><label>间隔(分钟)</label><input type="text" id="colInterval" value="60" style="max-width:110px"></div>
+            <div class="row" style="margin-top:12px">
+              <button class="btn" onclick="doCollectPreview()">采集预览</button>
+              <button class="btn enable" onclick="doCollectSend()">立即采集并上报</button>
+            </div>
+            <div class="row" style="margin-top:8px">
+              <button class="btn ghost" onclick="doCollectLocal()">仅生成本地表格</button>
+              <button class="btn ghost" onclick="openLastReport()">打开最近表格</button>
+            </div>
+            <p class="hint" id="colLast" style="margin-top:10px">上次上报：—</p>
+          </div>
+
+          <div class="card w-lg">
+            <h3>数据接口 · HTTP 推送</h3>
+            <p>采集完成后把标准 JSON 报文 POST 到统一接口，供服务端入库、统计与分析。契约标识 <span class="mono">port-security-tool.device-report / v1.0</span>；推送失败自动写入本地待发队列，网络恢复后自动补发，不丢数据。</p>
+            <div class="field"><label>接口地址</label><input type="text" id="apiUrl" placeholder="例如 http://10.0.0.10:8080/api/v1/device-reports"></div>
+            <div class="field"><label>认证令牌</label><input type="password" id="apiToken" placeholder="留空表示不修改"></div>
+            <div class="field"><label>超时(秒)</label><input type="text" id="apiTimeout" value="8" style="max-width:110px"></div>
+            <div class="field"><label>启用推送</label><span class="switchwrap"><input type="checkbox" id="apiPush"><span id="apiPushTip">未启用</span></span></div>
+            <div class="row" style="margin-top:12px">
+              <button class="btn primary" onclick="saveApiConfig()">保存接口配置</button>
+              <button class="btn" onclick="apiTestPush()">测试推送</button>
+              <button class="btn enable" onclick="apiPushNow()">立即推送</button>
+              <button class="btn ghost" onclick="apiFlush()">补发队列</button>
+            </div>
+            <p class="hint" id="apiState" style="margin-top:9px">推送状态：—</p>
+          </div>
+
+          <div class="card w-md">
+            <h3>数据接口 · 本地服务</h3>
+            <p>在本机回环地址开启只读查询接口，供服务端采集器直接拉取（无需终端外联）。默认关闭。</p>
+            <div class="field"><label>启用服务</label><span class="switchwrap"><input type="checkbox" id="apiLocal"><span id="apiLocalTip">未启用</span></span></div>
+            <div class="field"><label>监听端口</label><input type="text" id="apiLocalPort" value="18760" style="max-width:110px"></div>
+            <div class="field"><label>访问令牌</label><input type="password" id="apiLocalToken" placeholder="留空表示不修改"></div>
+            <div class="row" style="margin-top:12px">
+              <button class="btn primary" onclick="saveApiConfig()">保存并应用</button>
+              <button class="btn ghost" onclick="copyApiBase()">复制地址</button>
+              <button class="btn ghost" onclick="openApiPage()">浏览器打开</button>
+            </div>
+            <p class="hint" id="apiLocalState" style="margin-top:9px">服务状态：—</p>
+          </div>
+
+          <div class="card w-md">
+            <h3>接口契约</h3>
+            <div class="kv">
+              <div class="kvrow"><div class="k">契约标识</div><div class="v mono">device-report</div></div>
+              <div class="kvrow"><div class="k">契约版本</div><div class="v mono">v1.0</div></div>
+              <div class="kvrow"><div class="k">报文格式</div><div class="v">JSON / UTF-8</div></div>
+              <div class="kvrow"><div class="k">待发队列</div><div class="v mono" id="apiOutbox">0 条</div></div>
+            </div>
+            <div class="row" style="margin-top:12px">
+              <button class="btn ghost" onclick="exportApiDoc()">导出接口文档</button>
+            </div>
+            <p class="hint" style="margin-top:9px">导出接口说明、JSON Schema 与本机报文示例，可直接交给服务端开发使用。</p>
+          </div>
+
+          <div class="card w-lg">
+            <h3>采集内容预览</h3>
+            <div class="kv" id="colPreview">
+              <div class="kvrow"><div class="k">状态</div><div class="v">点击「采集预览」读取本机信息</div></div>
+            </div>
+          </div>
+
+          <div class="card w-lg">
+            <h3>程序设置</h3>
+            <div class="switchrow">
+              <div><div class="nm">开机自动启动</div><div class="ds">以计划任务方式随登录启动（最高权限、不弹 UAC），启动后自动最小化到托盘</div></div>
+              <div>
+                <button class="btn sm enable" onclick="setAutoStart(true)">启用</button>
+                <button class="btn sm danger" onclick="setAutoStart(false)">关闭</button>
+                <span class="hint" id="autoStartState" style="margin-left:6px">—</span>
+              </div>
+            </div>
+            <div class="switchrow">
+              <div><div class="nm">关闭时最小化到托盘</div><div class="ds">点击关闭按钮不退出程序，继续执行定时采集与端口防护；从托盘菜单可彻底退出</div></div>
+              <div>
+                <button class="btn sm enable" onclick="setTrayMode(true)">启用</button>
+                <button class="btn sm danger" onclick="setTrayMode(false)">关闭</button>
+                <span class="hint" id="trayState" style="margin-left:6px">—</span>
+              </div>
+            </div>
+            <div class="switchrow">
+              <div><div class="nm">配置文件与本地表格</div><div class="ds">采集目标、间隔与设置保存在用户目录，密码经混淆存储；生成的表格本地留有一份</div></div>
+              <div><button class="btn sm ghost" onclick="openConfigDir()">打开配置目录</button></div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- ============ 关于 ============ -->
+      <div class="page" id="p-about">
+        <div class="page-head"><h2>关于本工具</h2><p>版本信息、版权单位与运行环境。</p></div>
+        <div class="grid">
+          <div class="card w-md about-hero">
+            <div class="about-logo">◈</div>
+            <div class="about-name">网络信息采集和端口管理工具</div>
+            <div class="about-sub">INFORMATION COLLECTION &amp; PORT MANAGEMENT</div>
+            <div class="ver-badge" id="aboutVer">v1.0</div>
+            <p class="hint" style="text-align:left">面向内网终端的信息采集与高危端口管理工具。预置勒索病毒（MS17-010）、远程入口、弱服务、数据库暴露面四套封堵策略，支持端口封堵状态可视化、SMB / FTP 白名单放行与 SMB over QUIC 备用端口转发。</p>
+          </div>
+          <div class="card w-lg">
+            <h3>版本信息</h3>
+            <div class="kv" id="aboutKV">
+              <div class="kvrow"><div class="k">软件名称</div><div class="v">网络信息采集和端口管理工具 1.0版</div></div>
+              <div class="kvrow"><div class="k">版本号</div><div class="v mono" id="aboutVerLine">v1.0</div></div>
+              <div class="kvrow"><div class="k">构建时间</div><div class="v mono" id="aboutBuilt">读取中…</div></div>
+              <div class="kvrow"><div class="k">版权单位</div><div class="v">成都铁路局集团公司党校（职工培训基地）设备信息科</div></div>
+            </div>
+          </div>
+          <div class="card w-lg">
+            <h3>运行环境</h3>
+            <div class="kv" id="aboutEnv">
+              <div class="kvrow"><div class="k">操作系统</div><div class="v mono" id="envOS">读取中…</div></div>
+              <div class="kvrow"><div class="k">运行时</div><div class="v mono" id="envNet">读取中…</div></div>
+              <div class="kvrow"><div class="k">界面引擎</div><div class="v mono">HTML/CSS + JScript（内嵌 WebBrowser）</div></div>
+              <div class="kvrow"><div class="k">宿主</div><div class="v mono">C# WinForms 单文件原生宿主</div></div>
+              <div class="kvrow"><div class="k">部署形态</div><div class="v mono">单文件自包含（免装 .NET 运行时）</div></div>
+              <div class="kvrow"><div class="k">权限要求</div><div class="v mono">管理员（requireAdministrator）</div></div>
+            </div>
+          </div>
+          <div class="card w-lg">
+            <h3>功能模块</h3>
+            <div class="modlist">
+              <span>安全总览</span><span>预置封堵</span><span>端口与防火墙</span><span>共享与服务</span>
+              <span>IP 白名单</span><span>端口转发</span><span>全端口扫描与解释</span><span>封堵状态可视化</span>
+              <span>局域网发现</span><span>远程桌面</span><span>本机数据采集</span><span>定时上报</span><span>数据接口(API)</span><span>开机自启</span><span>托盘后台运行</span>
+            </div>
+          </div>
+          <div class="card w-lg">
+            <h3>版权与声明</h3>
+            <p class="copr">
+              版权所有 © 2026 <b>成都铁路局集团公司党校（职工培训基地）设备信息科</b><br>
+              本工具仅限本单位内网终端安全自查与加固使用，请勿用于未经授权的网络探测或端口扫描。<br>
+              执行封堵、服务关闭等操作会真实修改系统服务、注册表与防火墙规则，请在操作前确认业务影响。
+            </p>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <div id="logbar">
+    <div id="loghead">
+      <span class="dot"></span><span class="t">执行日志 / EXECUTION LOG</span>
+      <span class="sp"></span>
+      <button class="btn sm ghost" onclick="clearLog()">清空</button>
+      <button class="btn sm ghost" onclick="toggleLog()" id="logToggle">收起</button>
+    </div>
+    <div id="logbody"></div>
+  </div>
+</div>
+
+<script language="JScript">
+// ============================================================
+//  常量
+// ============================================================
+var ALL_PORTS = "20,21,22,23,25,53,69,80,110,111,135,137,138,139,143,161,162,389,443,445,465,512,513,514,636,873,993,995,1194,1352,1433,1434,1521,2049,2181,2375,2376,3260,3306,3389,3690,4444,4848,4899,5432,5631,5632,5900,5901,5902,5903,5904,5905,5906,5907,5908,5909,5984,5985,5986,6129,6379,7000,7001,7002,7199,7778,8000,8069,8080,8443,9042,9090,9160,9200,9300,10050,10051,11211,27017,27018,50000,50050,50070";
+// 常用端口清单：日常办公/网站/远程/数据库等需要放行的端口（用于「恢复常用端口」）
+var COMMON_PORTS = "20,21,22,25,53,80,110,143,443,465,993,995,1433,1521,3306,3389,5432,5900,8080,8443";
+var DB_PORTS  = "1433,1434,3306,1521,5432,27017,27018,6379,11211,9200,9300,2181";
+var PF_PORT   = "10001";
+var SMB_REC   = "%TEMP%\\smb_pf_records.txt";
+var fso = new ActiveXObject("Scripting.FileSystemObject");
+var wsh = new ActiveXObject("WScript.Shell");
+var admin = false;
+
+// ============================================================
+//  基础工具
+// ============================================================
+function $(id){ return document.getElementById(id); }
+function pad(n){ return n < 10 ? "0" + n : "" + n; }
+function now(){
+  var d = new Date();
+  return pad(d.getHours()) + ":" + pad(d.getMinutes()) + ":" + pad(d.getSeconds());
+}
+function log(msg, type){
+  var box = $("logbody");
+  var div = document.createElement("div");
+  div.className = "lg " + (type || "");
+  div.innerHTML = '<span class="ts">[' + now() + ']</span> ' + esc(msg);
+  box.appendChild(div);
+  box.scrollTop = box.scrollHeight;
+}
+function esc(s){
+  return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+}
+function clearLog(){ $("logbody").innerHTML = ""; }
+function toggleLog(){
+  var b = $("logbar");
+  if (b.className === "collapsed") { b.className = ""; $("logToggle").innerText = "收起"; }
+  else { b.className = "collapsed"; $("logToggle").innerText = "展开"; }
+}
+function go(p){
+  var pages = document.querySelectorAll(".page");
+  for (var i=0;i<pages.length;i++) pages[i].className = "page";
+  $("p-" + p).className = "page active";
+  var navs = document.querySelectorAll(".nav");
+  for (var j=0;j<navs.length;j++) navs[j].className = "nav";
+  var targets = document.querySelectorAll(".nav");
+  for (var k=0;k<targets.length;k++) if (targets[k].getAttribute("data-p") === p) targets[k].className = "nav active";
+  $("content").scrollTop = 0;
+  if (p === "ip") viewAllIPs();
+  if (p === "fw") renderPortList();
+  if (p === "about") fillAbout();
+  if (p === "collect") loadCollectSettings();
+  if (p === "rdp") rdpInit();
+}
+
+// ============================================================
+//  数据采集 / 程序设置
+// ============================================================
+function hasNative(name){
+  try { return !!(wsh && wsh[name]); } catch(e){ return false; }
+}
+
+function loadCollectSettings(){
+  loadApiSettings();
+  var st = $("autoStartState"), ts = $("trayState");
+  if (!hasNative("GetSettings")) {
+    if (st) { st.innerText = "仅 EXE 版支持"; st.className = "hint state-off"; }
+    if (ts) { ts.innerText = "仅 EXE 版支持"; ts.className = "hint state-off"; }
+    return;
+  }
+  try {
+    var a = String(wsh.GetSettings()).split("\u0001");
+    $("colIp").value = a[3] || "";
+    $("colShare").value = a[4] || "";
+    $("colUser").value = a[5] || "";
+    $("colPass").value = "";
+    $("colPass").placeholder = (a[6] === "1") ? "已设置，留空不修改" : "留空表示不设置";
+    $("colInterval").value = a[2] || "60";
+    $("colAuto").checked = (a[7] === "1");
+    $("colAutoTip").innerText = (a[7] === "1") ? "已启用" : "未启用";
+    $("colTarget").innerText = "当前目标：" + (a[10] || "未配置");
+    $("colLast").innerText = "上次上报：" + (a[8] ? a[8] + "　" + (a[9] || "") : "暂无记录");
+    if (st) { st.innerText = (a[0] === "1") ? "已启用" : "未启用"; st.className = "hint " + (a[0] === "1" ? "state-on" : "state-off"); }
+    if (ts) { ts.innerText = (a[1] === "1") ? "已启用" : "未启用"; ts.className = "hint " + (a[1] === "1" ? "state-on" : "state-off"); }
+  } catch(e) { log("读取采集配置失败：" + e.message, "err"); }
+}
+
+function saveCollectConfig(){
+  if (!hasNative("SaveCollectConfig")) { log("当前运行方式不支持采集上报（请使用 EXE 版）。", "warn"); return; }
+  var ip = $("colIp").value.replace(/^\s+|\s+$/g, "");
+  var share = $("colShare").value.replace(/^\s+|\s+$/g, "");
+  var user = $("colUser").value.replace(/^\s+|\s+$/g, "");
+  var pass = $("colPass").value;
+  var iv = parseInt($("colInterval").value, 10); if (isNaN(iv) || iv < 1) iv = 60;
+  var auto = $("colAuto").checked;
+  var r = String(wsh.SaveCollectConfig(ip, share, user, pass, iv, auto)).split("|");
+  log(r[1], r[0] === "OK" ? "ok" : "err");
+  $("colPass").value = "";
+  loadCollectSettings();
+}
+
+function renderCollectPreview(txt){
+  var box = $("colPreview"); if (!box) return;
+  var rows = String(txt).split("\u0001"), html = "";
+  for (var i=0;i<rows.length;i++){
+    if (!rows[i]) continue;
+    var p = rows[i].split("\t");
+    html += '<div class="kvrow"><div class="k">' + esc(p[0] || "") + '</div><div class="v">' + esc(p[1] || "") + '</div></div>';
+  }
+  box.innerHTML = html || '<div class="kvrow"><div class="k">状态</div><div class="v">无数据</div></div>';
+}
+
+function doCollectPreview(){
+  if (!hasNative("CollectPreview")) { log("当前运行方式不支持采集（请使用 EXE 版）。", "warn"); return; }
+  try {
+    renderCollectPreview(String(wsh.CollectPreview()));
+    log("已采集本机信息（仅预览，未上报）。", "ok");
+  } catch(e) { log("采集失败：" + e.message, "err"); }
+}
+
+function doCollectSend(){
+  if (!hasNative("CollectAndSend")) { log("当前运行方式不支持采集上报（请使用 EXE 版）。", "warn"); return; }
+  log("正在采集本机信息并上报…", "hd");
+  try {
+    var r = String(wsh.CollectAndSend()).split("|");
+    log(r[1], r[0] === "OK" ? "ok" : "err");
+    loadCollectSettings();
+  } catch(e) { log("上报失败：" + e.message, "err"); }
+}
+
+function doCollectLocal(){
+  if (!hasNative("CollectLocal")) { log("当前运行方式不支持采集（请使用 EXE 版）。", "warn"); return; }
+  try {
+    var r = String(wsh.CollectLocal()).split("|");
+    if (r[0] === "OK") log("已生成本地表格：" + r[1], "ok");
+    else log("生成失败：" + r[1], "err");
+  } catch(e) { log("生成失败：" + e.message, "err"); }
+}
+
+function openLastReport(){ try { if (hasNative("OpenLastReport")) wsh.OpenLastReport(); } catch(e){} }
+function openTargetFolder(){ try { if (hasNative("OpenTargetFolder")) wsh.OpenTargetFolder(); } catch(e){} }
+function openConfigDir(){ try { if (hasNative("OpenConfigDir")) wsh.OpenConfigDir(); } catch(e){} }
+
+// ============================================================
+//  数据接口（API）
+// ============================================================
+function apiSplit(s){
+  s = String(s); var i = s.indexOf("|");
+  return i < 0 ? [s, ""] : [s.substring(0, i), s.substring(i + 1)];
+}
+function apiTrim(s){ return String(s || "").replace(/^\s+|\s+$/g, ""); }
+
+function loadApiSettings(){
+  if (!hasNative("GetApiSettings")) return;
+  try {
+    var a = String(wsh.GetApiSettings()).split("\u0001");
+    $("apiPush").checked = (a[0] === "1");
+    $("apiPushTip").innerText = (a[0] === "1") ? "已启用" : "未启用";
+    $("apiUrl").value = a[1] || "";
+    $("apiToken").value = "";
+    $("apiToken").placeholder = (a[2] === "1") ? "已设置，留空不修改" : "留空表示不设置";
+    $("apiTimeout").value = a[3] || "8";
+    $("apiLocal").checked = (a[4] === "1");
+    $("apiLocalTip").innerText = (a[4] === "1") ? "已启用" : "未启用";
+    $("apiLocalPort").value = a[5] || "18760";
+    $("apiLocalToken").value = "";
+    $("apiLocalToken").placeholder = (a[6] === "1") ? "已设置，留空不修改" : "留空表示不设置";
+    $("apiOutbox").innerText = (a[8] || "0") + " 条";
+
+    var st = "推送状态：" + (a[0] === "1" ? "已开启（" + (a[1] ? a[1] : "未填写地址") + "）" : "未开启");
+    if (a[9]) st += "　上次 " + a[9] + " " + (a[10] || "");
+    $("apiState").innerText = st;
+
+    var sv = ["0", "0", a[7] || "", "0"];
+    if (hasNative("ApiServerState")) sv = String(wsh.ApiServerState()).split("|");
+    $("apiLocalState").innerText = "服务状态：" + (sv[0] === "1"
+      ? "运行中　" + (sv[2] || a[7] || "")
+      : (sv[3] === "1" ? "已配置但未运行，请点「保存并应用」重试" : "未开启"));
+  } catch(e) { log("读取接口配置失败：" + e.message, "err"); }
+}
+
+function saveApiConfig(){
+  if (!hasNative("SaveApiConfig")) { log("当前运行方式不支持数据接口（请使用 EXE 版）。", "warn"); return; }
+  var url = apiTrim($("apiUrl").value);
+  var token = $("apiToken").value;
+  var to = parseInt(apiTrim($("apiTimeout").value), 10); if (isNaN(to) || to < 3) to = 8;
+  var push = $("apiPush").checked;
+  var local = $("apiLocal").checked;
+  var port = parseInt(apiTrim($("apiLocalPort").value), 10); if (isNaN(port) || port < 1024 || port > 65535) port = 18760;
+  var ltok = $("apiLocalToken").value;
+  var r = apiSplit(wsh.SaveApiConfig(url, token, to, push, local, port, ltok));
+  log(r[1], r[0] === "OK" ? "ok" : "err");
+  $("apiToken").value = ""; $("apiLocalToken").value = "";
+  loadApiSettings();
+}
+
+function apiTestPush(){
+  if (!hasNative("ApiTest")) { log("当前运行方式不支持数据接口（请使用 EXE 版）。", "warn"); return; }
+  log("正在采集并测试接口连通性…", "hd");
+  var r = apiSplit(wsh.ApiTest(apiTrim($("apiUrl").value), $("apiToken").value));
+  log(r[1], r[0] === "OK" ? "ok" : "err");
+  loadApiSettings();
+}
+
+function apiPushNow(){
+  if (!hasNative("ApiPushNow")) { log("当前运行方式不支持数据接口（请使用 EXE 版）。", "warn"); return; }
+  log("正在采集并推送…", "hd");
+  var r = apiSplit(wsh.ApiPushNow());
+  log(r[1], r[0] === "OK" ? "ok" : "err");
+  loadApiSettings();
+}
+
+function apiFlush(){
+  if (!hasNative("ApiFlushOutbox")) { log("当前运行方式不支持待发队列（请使用 EXE 版）。", "warn"); return; }
+  var r = apiSplit(wsh.ApiFlushOutbox());
+  log(r[1], r[0] === "OK" ? "ok" : "err");
+  loadApiSettings();
+}
+
+function copyApiBase(){
+  var sv = ["0", "0", ""];
+  if (hasNative("ApiServerState")) sv = String(wsh.ApiServerState()).split("|");
+  var port = apiTrim($("apiLocalPort").value) || "18760";
+  var u = sv[2] || ("http://127.0.0.1:" + port + "/api/v1");
+  if (hasNative("CopyText")) wsh.CopyText(u);
+  log("已复制接口基地址：" + u, "ok");
+}
+
+function openApiPage(){
+  var sv = ["0", "0", ""];
+  if (hasNative("ApiServerState")) sv = String(wsh.ApiServerState()).split("|");
+  if (sv[0] !== "1") { log("本地服务未运行，请先勾选「启用服务」并保存配置。", "warn"); return; }
+  if (hasNative("OpenUrl")) wsh.OpenUrl(sv[2] || "http://127.0.0.1:18760/api/v1");
+}
+
+function exportApiDoc(){
+  if (!hasNative("ExportApiDoc")) { log("当前运行方式不支持导出接口文档（请使用 EXE 版）。", "warn"); return; }
+  var r = apiSplit(wsh.ExportApiDoc());
+  log(r[1], r[0] === "OK" ? "ok" : "err");
+}
+
+function setAutoStart(on){
+  if (!hasNative("SetAutoStart")) { log("当前运行方式不支持开机自启（请使用 EXE 版）。", "warn"); return; }
+  try {
+    var ok = wsh.SetAutoStart(on);
+    log(ok ? ("开机自启已" + (on ? "启用" : "关闭") + "。") : "设置开机自启失败，请检查系统策略。", ok ? "ok" : "err");
+    loadCollectSettings();
+  } catch(e) { log("设置失败：" + e.message, "err"); }
+}
+
+function setTrayMode(on){
+  if (!hasNative("SetTrayMode")) { log("当前运行方式不支持托盘设置（请使用 EXE 版）。", "warn"); return; }
+  try {
+    wsh.SetTrayMode(on);
+    log("关闭行为已改为：" + (on ? "最小化到托盘（后台继续运行）" : "直接退出程序"), "ok");
+    loadCollectSettings();
+  } catch(e) { log("设置失败：" + e.message, "err"); }
+}
+
+
+// ============================================================
+//  局域网远程桌面
+// ============================================================
+window.__rdpScanning = false;
+window.__rdpReqPending = false;
+
+function rdpInit(){
+  if (!hasNative("RdpCidrs")) {
+    $("rdpScanInfo").innerText = "仅 EXE 版支持局域网发现";
+    return;
+  }
+  try {
+    if (!$("rdpCidr").value) {
+      var cs = String(wsh.RdpCidrs()).split("\u0001");
+      $("rdpCidr").value = cs[0] || "";
+    }
+  } catch(e){}
+  loadRdpSettings();
+}
+
+function loadRdpSettings(){
+  if (!hasNative("GetRdpSettings")) return;
+  try {
+    var a = String(wsh.GetRdpSettings()).split("\u0001");
+    $("rdpAgent").checked = (a[0] === "1");
+    $("rdpAgentTip").innerText = (a[0] === "1") ? "已启用" : "未启用";
+    $("rdpAgentPort").value = a[1] || "18761";
+    $("rdpToken").value = "";
+    $("rdpToken").placeholder = (a[2] === "1") ? "已设置，留空不修改" : "与请求端保持一致";
+    if (!$("rdpUser").value) $("rdpUser").value = a[6] || "";
+    if (!$("rdpW").value) $("rdpW").value = a[7] || "1600";
+    if (!$("rdpH").value) $("rdpH").value = a[8] || "900";
+    $("rdpClip").checked = (a[9] === "1");
+    $("rdpDrives").checked = (a[10] === "1");
+
+    var st = "服务状态：" + (a[11] === "1" ? "运行中，端口 " + a[1] : "未运行");
+    if (a[3]) st += "　已为 " + a[3] + " 临时放行" + (a[4] ? "（" + a[4] + "）" : "");
+    st += "　本机远程桌面：" + (a[5] === "1" ? "已开启" : "已关闭");
+    $("rdpAgentState").innerText = st;
+  } catch(e){}
+}
+
+function rdpScan(){
+  if (!hasNative("RdpScanStart")) { log("当前运行方式不支持局域网扫描（请使用 EXE 版）。", "warn"); return; }
+  var spec = apiTrim($("rdpCidr").value);
+  if (!spec) { log("请先填写网段，例如 192.168.1.0/24。", "warn"); return; }
+  var r = apiSplit(wsh.RdpScanStart(spec));
+  if (r[0] !== "OK") { log(r[1], "err"); return; }
+  log(r[1], "hd");
+  $("rdpBody").innerHTML = '<tr><td colspan="7" class="hint">扫描中…</td></tr>';
+  window.__rdpScanning = true;
+  rdpScanTick();
+}
+
+// 由宿主定时器驱动（WebBrowser 内核里 setTimeout 不触发）
+function rdpScanTick(){
+  if (!window.__rdpScanning) return;
+  var s = String(wsh.RdpScanState()).split("|");
+  $("rdpScanInfo").innerText = "进度 " + s[1] + "%　在线 " + s[2] + " 台　" + (s[3] || "");
+  renderRdpRows(String(wsh.RdpScanRows()));
+  if (s[0] !== "1") {
+    window.__rdpScanning = false;
+    log("扫描完成，" + s[2] + " 台主机在线。", "ok");
+  }
+}
+
+function rdpStop(){
+  try { if (hasNative("RdpScanStop")) wsh.RdpScanStop(); } catch(e){}
+  log("已请求停止扫描。", "warn");
+}
+
+function renderRdpRows(txt){
+  var rows = txt ? txt.split("\u0001") : [];
+  if (!rows.length || !rows[0]) {
+    $("rdpBody").innerHTML = '<tr><td colspan="7" class="hint">未发现在线主机</td></tr>';
+    return;
+  }
+  var html = "";
+  for (var i=0;i<rows.length;i++){
+    var c = rows[i].split("\t");
+    var ip = c[0], name = c[1] || "—", mac = c[2] || "—";
+    var canRdp = (c[3] === "1"), hasAgent = (c[4] === "1"), enabled = (c[5] === "1"), user = c[6] || "—";
+    var tag = canRdp ? '<span class="tag on">可连接</span>'
+            : (enabled ? '<span class="tag na">未监听</span>' : '<span class="tag off">已封堵</span>');
+    var ag = hasAgent ? '<span class="tag on">在线</span>' : '<span class="tag na">—</span>';
+    var ops = '<button class="btn sm enable" onclick="rdpPick(\'' + ip + '\',' + (canRdp ? "1" : "0") + ')">连接</button>';
+    if (hasAgent) ops += ' <button class="btn sm" onclick="rdpPickReq(\'' + ip + '\')">请求</button>';
+    html += '<tr><td>' + esc(name) + '</td>'
+          + '<td class="mono">' + esc(ip) + '</td>'
+          + '<td class="mono">' + esc(mac) + '</td>'
+          + '<td>' + tag + '</td><td>' + ag + '</td>'
+          + '<td>' + esc(user) + '</td><td>' + ops + '</td></tr>';
+  }
+  $("rdpBody").innerHTML = html;
+}
+
+function rdpPick(ip, canDirect){
+  $("rdpIp").value = ip;
+  if (canDirect === 1) rdpConnect();
+  else log("该主机 3389 未开放：可点「请求」，由对方确认后临时放行。", "warn");
+}
+
+function rdpPickReq(ip){
+  $("rdpIp").value = ip;
+  rdpRequest();
+}
+
+function rdpConnect(){
+  if (!hasNative("RdpConnect")) { log("当前运行方式不支持发起连接（请使用 EXE 版）。", "warn"); return; }
+  var ip = apiTrim($("rdpIp").value);
+  if (!ip) { log("请填写目标地址。", "warn"); return; }
+  var w = parseInt(apiTrim($("rdpW").value), 10); if (isNaN(w) || w < 800) w = 1600;
+  var h = parseInt(apiTrim($("rdpH").value), 10); if (isNaN(h) || h < 600) h = 900;
+  var r = apiSplit(wsh.RdpConnect(ip, apiTrim($("rdpUser").value), $("rdpClip").checked, $("rdpDrives").checked, w, h));
+  log(r[1], r[0] === "OK" ? "ok" : "err");
+}
+
+function rdpRequest(){
+  if (!hasNative("RdpRequest")) { log("当前运行方式不支持远程请求（请使用 EXE 版）。", "warn"); return; }
+  var ip = apiTrim($("rdpIp").value);
+  if (!ip) { log("请填写目标地址。", "warn"); return; }
+  var r = apiSplit(wsh.RdpRequest(ip));
+  log(r[1], r[0] === "OK" ? "hd" : "err");
+  if (r[0] !== "OK") return;
+  window.__rdpReqPending = true;
+  $("rdpReqState").innerText = "请求状态：等待 " + ip + " 确认…";
+}
+
+function rdpReqTick(){
+  if (!window.__rdpReqPending) return;
+  var s = String(wsh.RdpReqState()).split("|");
+  var code = s[0], msg = s[1] || "";
+  if (code === "1") {
+    $("rdpReqState").innerText = "请求状态：等待 " + msg + " 确认…";
+    return;
+  }
+  window.__rdpReqPending = false;
+  if (code === "2") {
+    $("rdpReqState").innerText = "请求状态：对方已允许 —— " + msg;
+    log("目标已允许：" + msg + "，正在发起远程桌面…", "ok");
+    rdpConnect();
+  } else if (code === "3") {
+    $("rdpReqState").innerText = "请求状态：失败 —— " + msg;
+    log("远程请求失败：" + msg, "err");
+  } else {
+    $("rdpReqState").innerText = "请求状态：—";
+  }
+}
+
+// 宿主节拍入口：扫描与请求共用
+function rdpTick(){
+  if (window.__rdpScanning) rdpScanTick();
+  if (window.__rdpReqPending) rdpReqTick();
+}
+
+function saveRdpAgent(){
+  if (!hasNative("SaveRdpConfig")) { log("当前运行方式不支持远程请求响应（请使用 EXE 版）。", "warn"); return; }
+  var port = parseInt(apiTrim($("rdpAgentPort").value), 10);
+  if (isNaN(port)) port = 18761;
+  var r = apiSplit(wsh.SaveRdpConfig($("rdpAgent").checked, port, $("rdpToken").value));
+  log(r[1], r[0] === "OK" ? "ok" : "err");
+  $("rdpToken").value = "";
+  loadRdpSettings();
+}
+
+function rdpRestoreLocal(){
+  if (!hasNative("RdpRestoreLocal")) { log("当前运行方式不支持该操作（请使用 EXE 版）。", "warn"); return; }
+  var r = apiSplit(wsh.RdpRestoreLocal());
+  log(r[1], r[0] === "OK" ? "ok" : "err");
+  loadRdpSettings();
+}
+
+// 「关于」页：写入版本 / 构建 / 运行环境信息
+function fillAbout(){
+  var verLine = "v1.0", built = "—", net = "—", arch = "", os = "";
+  try {
+    if (wsh.BuildInfo) {
+      var a = String(wsh.BuildInfo()).split("|");
+      if (a[1]) net = ".NET " + a[1];
+      if (a[2]) arch = a[2];
+      if (a[3] && a[3] !== "-") built = a[3];
+    }
+  } catch(e){}
+  try { if (wsh.OsCaption) os = String(wsh.OsCaption()); } catch(e){}
+  if (!os) { try { os = wsh.ExpandEnvironmentStrings("%OS%"); } catch(e2){} }
+  var e1 = $("aboutVerLine"); if (e1) e1.innerText = verLine;
+  var e2 = $("aboutBuilt");   if (e2) e2.innerText = built;
+  var e3 = $("envOS");        if (e3) e3.innerText = os || "—";
+  var e4 = $("envNet");       if (e4) e4.innerText = net + (arch ? "  /  " + arch : "");
+}
+
+// 静默执行命令，返回 ExitCode
+function exec(cmd){
+  try { return wsh.Run("cmd.exe /c " + cmd, 0, true); }
+  catch(e){ log("命令执行异常: " + e.message, "err"); return -1; }
+}
+// 捕获命令输出（命令本身不要带 >nul）
+function capture(cmd){
+  var tmp = fso.GetSpecialFolder(2) + "\\sec_" + fso.GetTempName();
+  try {
+    wsh.Run("cmd.exe /c " + cmd + ' > "' + tmp + '" 2>&1', 0, true);
+    var s = "";
+    if (fso.FileExists(tmp)) {
+      var f = fso.OpenTextFile(tmp, 1, false);
+      if (!f.AtEndOfStream) s = f.ReadAll();
+      f.Close();
+      fso.DeleteFile(tmp, true);
+    }
+    return s;
+  } catch(e){ log("输出捕获异常: " + e.message, "err"); return ""; }
+}
+// 运行 PowerShell 子命令
+function ps(script){
+  return capture('powershell -NoProfile -Command "' + script + '"');
+}
+function needAdmin(){
+  if (!admin) { log("需要管理员权限，请以管理员身份运行本程序。", "err"); return false; }
+  return true;
+}
+function normIP(s){
+  return String(s || "").replace(/[，、\s]+/g, ",").replace(/^,+/, "").replace(/,+$/, "");
+}
+function keepCSV(){
+  var v = normIP($("keepPorts").value);
+  return "," + v + ",";
+}
+function inKeep(p){ return keepCSV().indexOf("," + p + ",") >= 0; }
+
+// ============================================================
+//  权限 / 状态
+// ============================================================
+function detectAdmin(){
+  // 1) 原生宿主：直接读进程令牌，最可靠，不依赖任何系统服务
+  try { return { ok: (wsh.IsAdmin() === true) || (wsh.IsAdmin() == true), via: "原生令牌" }; } catch(e){}
+  // 2) 回退：fltmc 需要管理员令牌但不依赖 Server 服务
+  try { if (wsh.Run("cmd.exe /c fltmc >nul 2>&1", 0, true) === 0) return { ok: true, via: "fltmc" }; } catch(e){}
+  // 3) 最后回退：net session（注意：Server 服务被禁用时会误判）
+  try {
+    var e = wsh.Exec("cmd.exe /c net session >nul 2>&1");
+    e.StdOut.ReadAll(); e.StdErr.ReadAll();
+    return { ok: (e.ExitCode === 0), via: "net session" };
+  } catch(e){ return { ok: false, via: "未知" }; }
+}
+function checkAdmin(){
+  var r = detectAdmin();
+  admin = (r.ok === true);
+  var c = $("chipAdmin"), s = $("stAdmin");
+  if (admin) {
+    c.className = "chip ok"; c.innerHTML = "<b>● 管理员权限</b>";
+    s.innerText = "已就绪"; s.className = "value green";
+    log("权限校验通过：当前为管理员（检测方式：" + r.via + "）。", "ok");
+  } else {
+    c.className = "chip err"; c.innerHTML = "<b>● 普通权限</b>";
+    s.innerText = "不足"; s.className = "value red";
+    log("当前不是管理员权限，策略执行将被拒绝。", "err");
+    if (confirm("当前不是管理员权限，无法执行加固操作。\n是否立即以管理员身份重启本程序？")) {
+      elevate();
+    }
+  }
+}
+function elevate(){
+  var p = decodeURIComponent(location.href.replace(/^file:\/\/\//i,"").replace(/\//g,"\\"));
+  try {
+    var sa = new ActiveXObject("Shell.Application");
+    sa.ShellExecute("mshta.exe", '"' + p + '"', "", "runas", 1);
+    window.close();
+  } catch(e){ log("提权失败: " + e.message, "err"); }
+}
+function checkFW(){
+  var on;
+  // 原生读取注册表（毫秒级），失败才回退 netsh
+  try { var f = wsh.FwState(); if (f === 1) on = true; else if (f === 0) on = false; } catch(e){}
+  if (on === undefined) {
+    var s = capture("netsh advfirewall show allprofiles state");
+    on = (s.toUpperCase().indexOf("ON") >= 0);
+  }
+  var c = $("chipFW"), v = $("stFW");
+  if (on) { c.className="chip ok"; c.innerHTML="<b>● 防火墙已开启</b>"; v.innerText="已开启"; v.className="value green"; }
+  else { c.className="chip warn"; c.innerHTML="<b>● 防火墙未全开</b>"; v.innerText="未全开"; v.className="value amber"; }
+  return on;
+}
+function checkOS(){
+  var v = "";
+  try { v = wsh.OsCaption(); } catch(e){}
+  if (!v) {
+    v = wsh.ExpandEnvironmentStrings("%OS%");
+    var cap = capture("wmic os get Caption /value");
+    var m = cap.match(/Caption=(.*)/);
+    if (m) v = m[1].replace(/\r/g,"").trim();
+  }
+  $("chipOS").innerText = v.substring(0, 34);
+}
+function refreshStats(){
+  var r = netstatAll();
+  var lines = r.split(/\r?\n/), ports = {}, n = 0, danger = 0;
+  var arr = ALL_PORTS.split(",");
+  for (var i=0;i<lines.length;i++){
+    if (lines[i].toUpperCase().indexOf("LISTENING") < 0) continue;
+    var m = lines[i].match(/:(\d+)\s/);
+    if (m) { var p = m[1]; if (!ports[p]) { ports[p]=1; n++; if (arr.indexOf(p)>=0) danger++; } }
+  }
+  $("stListen").innerText = n;
+  $("stDanger").innerText = danger;
+  checkFW();
+  log("体检完成：监听端口 " + n + " 个，命中高危清单 " + danger + " 个。", danger ? "warn" : "ok");
+}
+
+// ============================================================
+//  服务与注册表加固
+// ============================================================
+function svcExists(name){ return exec('sc query "' + name + '" >nul 2>&1') === 0; }
+function disableSvc(name, label){
+  if (!needAdmin()) return;
+  if (!svcExists(name)) { log("跳过：" + label + "（未安装）", "warn"); return; }
+  exec('sc config "' + name + '" start= disabled >nul 2>&1');
+  exec('net stop "' + name + '" /y >nul 2>&1');
+  log("已关闭：" + label, "ok");
+}
+function enableSvc(name, label, type){
+  if (!needAdmin()) return;
+  if (!svcExists(name)) { log("跳过：" + label + "（未安装）", "warn"); return; }
+  exec('sc config "' + name + '" start= ' + type + ' >nul 2>&1');
+  if (type === "auto") exec('net start "' + name + '" >nul 2>&1');
+  log("已恢复：" + label + " (" + type + ")", "ok");
+}
+function regAdd(path, name, val){
+  exec('reg add "' + path + '" /v ' + name + ' /t REG_DWORD /d ' + val + ' /f >nul 2>&1');
+}
+function killAutoShare(){
+  if (!needAdmin()) return;
+  var s = ["C$","D$","E$","ADMIN$","IPC$"];
+  for (var i=0;i<s.length;i++) exec('net share ' + s[i] + ' /delete >nul 2>&1');
+  regAdd("HKLM\\SYSTEM\\CurrentControlSet\\Services\\LanmanServer\\Parameters","AutoShareWks",0);
+  regAdd("HKLM\\SYSTEM\\CurrentControlSet\\Services\\LanmanServer\\Parameters","AutoShareServer",0);
+  log("默认共享已删除并禁止自动重建。", "ok");
+}
+function killNetBIOS(){
+  if (!needAdmin()) return;
+  ps("Get-WmiObject Win32_NetworkAdapterConfiguration | Where-Object {$_.TcpipNetbiosOptions -ne 2 -and $_.IPEnabled -eq $true} | ForEach-Object {$_.SetTcpipNetbiosOptions(2) | Out-Null}");
+  exec('sc config NetBT start= disabled >nul 2>&1');
+  regAdd("HKLM\\SYSTEM\\CurrentControlSet\\Services\\NetBT\\Parameters","NetbiosOptions",2);
+  log("NetBIOS / NetBT 已关闭（137/138/139）。", "ok");
+}
+function restoreNetBIOS(){
+  if (!needAdmin()) return;
+  exec('sc config NetBT start= system >nul 2>&1');
+  exec('sc start NetBT >nul 2>&1');
+  regAdd("HKLM\\SYSTEM\\CurrentControlSet\\Services\\NetBT\\Parameters","NetbiosOptions",0);
+  ps("Get-WmiObject Win32_NetworkAdapterConfiguration | Where-Object {$_.IPEnabled -eq $true -and $_.TcpipNetbiosOptions -ne 0} | ForEach-Object {$_.SetTcpipNetbiosOptions(0) | Out-Null}");
+  log("NetBIOS / NetBT 已恢复。", "ok");
+}
+function killSMBv1(){
+  if (!needAdmin()) return;
+  regAdd("HKLM\\SYSTEM\\CurrentControlSet\\Services\\LanmanServer\\Parameters","SMB1",0);
+  ps("Set-SmbServerConfiguration -EnableSMB1Protocol $false -Force");
+  exec('sc config mrxsmb10 start= disabled >nul 2>&1');
+  log("SMBv1 已禁用（防 MS17-010 永恒之蓝）。", "ok");
+}
+function hardenNTLM(){
+  if (!needAdmin()) return;
+  regAdd("HKLM\\SYSTEM\\CurrentControlSet\\Control\\Lsa","LmCompatibilityLevel",5);
+  regAdd("HKLM\\SYSTEM\\CurrentControlSet\\Control\\Lsa","NoLMHash",1);
+  log("NTLM 已加固：拒绝 LM/NTLMv1，强制 NTLMv2。", "ok");
+}
+function smbSignature(){
+  if (!needAdmin()) return;
+  ps("Set-SmbServerConfiguration -RequireSecuritySignature $true -Force");
+  log("已强制 SMB 签名。", "ok");
+}
+function ftpAnon(restore){
+  if (!needAdmin()) return;
+  var v = restore ? "$true" : "$false";
+  ps("Import-Module WebAdministration -ErrorAction SilentlyContinue; Set-WebConfigurationProperty -Filter 'system.ftpServer/security/authentication/anonymousAuthentication' -Name enabled -Value " + v + " -PSPath 'IIS:\\' -ErrorAction SilentlyContinue");
+  log(restore ? "IIS FTP 匿名登录已恢复。" : "IIS FTP 匿名登录已关闭。", "ok");
+}
+function disableRDP(){
+  if (!needAdmin()) return;
+  regAdd("HKLM\\SYSTEM\\CurrentControlSet\\Control\\Terminal Server","fDenyTSConnections",1);
+  log("远程桌面已关闭（需重启生效）。", "ok");
+}
+function restoreRDP(){
+  if (!needAdmin()) return;
+  regAdd("HKLM\\SYSTEM\\CurrentControlSet\\Control\\Terminal Server","fDenyTSConnections",0);
+  log("远程桌面已恢复。", "ok");
+}
+
+// ============================================================
+//  防火墙规则
+// ============================================================
+function blockPort(p){
+  exec('netsh advfirewall firewall delete rule name="Block_Port_' + p + '_TCP_in" >nul 2>&1');
+  exec('netsh advfirewall firewall delete rule name="Block_Port_' + p + '_UDP_in" >nul 2>&1');
+  exec('netsh advfirewall firewall add rule name="Block_Port_' + p + '_TCP_in" dir=in action=block protocol=TCP localport=' + p + ' >nul 2>&1');
+  exec('netsh advfirewall firewall add rule name="Block_Port_' + p + '_UDP_in" dir=in action=block protocol=UDP localport=' + p + ' >nul 2>&1');
+}
+function unblockPort(p){
+  exec('netsh advfirewall firewall delete rule name="Block_Port_' + p + '_TCP_in" >nul 2>&1');
+  exec('netsh advfirewall firewall delete rule name="Block_Port_' + p + '_UDP_in" >nul 2>&1');
+}
+function fwBlockAll(mode){
+  if (!needAdmin()) return;
+  var arr = ALL_PORTS.split(","), n = 0, cmds = [];
+  for (var i=0;i<arr.length;i++){
+    var p = arr[i];
+    if (inKeep(p)) continue;
+    if (mode === "NOSMB" && (p === "445" || p === "139")) continue;
+    if (mode === "NOFTP" && (p === "20" || p === "21")) continue;
+    cmds.push('netsh advfirewall firewall delete rule name="Block_Port_' + p + '_TCP_in" >nul 2>&1');
+    cmds.push('netsh advfirewall firewall delete rule name="Block_Port_' + p + '_UDP_in" >nul 2>&1');
+    cmds.push('netsh advfirewall firewall add rule name="Block_Port_' + p + '_TCP_in" dir=in action=block protocol=TCP localport=' + p + ' >nul 2>&1');
+    cmds.push('netsh advfirewall firewall add rule name="Block_Port_' + p + '_UDP_in" dir=in action=block protocol=UDP localport=' + p + ' >nul 2>&1');
+    n++;
+  }
+  // 汇总为临时脚本一次执行，避免逐条启动 cmd 导致界面长时间无响应
+  var bat = fso.GetSpecialFolder(2) + "\\fwblock_" + fso.GetTempName() + ".cmd";
+  try {
+    var f = fso.OpenTextFile(bat, 2, true);
+    f.WriteLine("@echo off");
+    for (var j=0;j<cmds.length;j++) f.WriteLine(cmds[j]);
+    f.Close();
+    exec('call "' + bat + '" >nul 2>&1');
+    fso.DeleteFile(bat, true);
+  } catch(e){ log("批量下发异常: " + e.message, "err"); }
+  log("防火墙已下发 " + n + " 个高危端口阻断规则（TCP+UDP）。", "ok");
+  invalidateRules();
+  scanBlockStatus();
+}
+// 恢复常用端口：删除这些端口的阻断规则，并把它们写入保留列表，避免下次封堵再次拦截
+function restoreCommonPorts(){
+  if (!needAdmin()) return;
+  var arr = COMMON_PORTS.split(","), cmds = [];
+  for (var i=0;i<arr.length;i++){
+    cmds.push('netsh advfirewall firewall delete rule name="Block_Port_' + arr[i] + '_TCP_in" >nul 2>&1');
+    cmds.push('netsh advfirewall firewall delete rule name="Block_Port_' + arr[i] + '_UDP_in" >nul 2>&1');
+  }
+  var bat = fso.GetSpecialFolder(2) + "\\fwrestore_" + fso.GetTempName() + ".cmd";
+  try {
+    var f = fso.OpenTextFile(bat, 2, true);
+    f.WriteLine("@echo off");
+    for (var j=0;j<cmds.length;j++) f.WriteLine(cmds[j]);
+    f.Close();
+    exec('call "' + bat + '" >nul 2>&1');
+    fso.DeleteFile(bat, true);
+  } catch(e){ log("恢复常用端口异常: " + e.message, "err"); }
+  // 合并写入保留列表
+  var keep = normIP($("keepPorts").value).split(","), map = {};
+  for (var k=0;k<keep.length;k++) if (keep[k]) map[keep[k]] = 1;
+  for (var m=0;m<arr.length;m++) map[arr[m]] = 1;
+  $("keepPorts").value = Object.keys(map).join(",");
+  log("已恢复 " + arr.length + " 个常用端口（并加入保留列表）。", "ok");
+  invalidateRules();
+  scanBlockStatus();
+}
+// 恢复所有端口：删除全部本工具创建的阻断规则，并清空保留列表
+function restoreAllPorts(){
+  if (!needAdmin()) return;
+  var cnt = ps("(Get-NetFirewallRule -DisplayName 'Block_Port_*' -ErrorAction SilentlyContinue | Measure-Object).Count").trim();
+  ps("Get-NetFirewallRule -DisplayName 'Block_Port_*' -ErrorAction SilentlyContinue | Remove-NetFirewallRule");
+  $("keepPorts").value = "";
+  log("已恢复所有端口：删除 " + (cnt || "?") + " 条阻断规则，保留列表已清空。", "ok");
+  invalidateRules();
+  scanBlockStatus();
+}
+// ============================================================
+//  预置加固策略
+// ============================================================
+function hardenServicesBase(){
+  killAutoShare();
+  disableRDP();
+  disableSvc("LanmanServer","Server/SMB 服务(445)");
+  killNetBIOS();
+  disableSvc("FTPSVC","FTP 服务(20/21)");
+  disableSvc("sshd","SSH 服务(22)");
+  disableSvc("TlntSvr","Telnet 服务(23)");
+  disableSvc("SharedAccess","ICS 服务(53)");
+  disableSvc("DNS","DNS 服务(53)");
+  disableSvc("SNMP","SNMP 服务(161)");
+  killSMBv1();
+  hardenNTLM();
+}
+function dbAuthCheck(){
+  var p = ["27017","6379","3306","1433"], n = ["MongoDB","Redis","MySQL","SQL Server"];
+  var tips = ["确认已开启 auth", "确认已设置 requirepass", "确认 root 非弱口令", "确认 sa 非弱口令"];
+  var out = "";
+  for (var i=0;i<p.length;i++){
+    var r = ps('if (Test-NetConnection -ComputerName 127.0.0.1 -Port ' + p[i] + ' -InformationLevel Quiet) { "YES" } else { "NO" }').trim();
+    if (r.indexOf("YES") >= 0) out += "  [注意] " + p[i] + " " + n[i] + " 在本机监听，" + tips[i] + "\n";
+  }
+  log("数据库授权检查完成。\n" + (out || "  未发现监听中的数据库端口。"), out ? "warn" : "ok");
+}
+function checkRDPListen(){
+  var r = exec('netstat -ano | findstr ":3389" | findstr "LISTENING" >nul 2>&1');
+  if (r === 0) log("[注意] 3389 仍在监听，若需彻底关闭请停止 TermService 并重启。", "warn");
+  else log("[OK] 3389 未监听。", "ok");
+}
+function profileTerminal(){
+  if (!needAdmin()) return;
+  log("=== 策略一：终端防勒索加固 ===", "hd");
+  killAutoShare();
+  regAdd("HKLM\\SYSTEM\\CurrentControlSet\\Services\\LanmanServer\\Parameters","SMB1",0);
+  ps("Set-SmbServerConfiguration -EnableSMB1Protocol $false -Force");
+  smbSignature();
+  hardenNTLM();
+  blockPort("445"); blockPort("139");
+  log("策略一执行完成：SMB 相关风险面已收敛。", "ok");
+  refreshStats();
+}
+function profileRemote(){
+  if (!needAdmin()) return;
+  log("=== 策略二：远程入口封堵 ===", "hd");
+  disableRDP();
+  disableSvc("sshd","SSH 服务(22)");
+  disableSvc("TlntSvr","Telnet 服务(23)");
+  var rp = ["3389","22","23","5985","5986"];
+  for (var i=0;i<rp.length;i++) if (!inKeep(rp[i])) blockPort(rp[i]);
+  checkRDPListen();
+  log("策略二执行完成。", "ok");
+}
+function profileService(){
+  if (!needAdmin()) return;
+  log("=== 策略三：弱服务收敛 ===", "hd");
+  killNetBIOS();
+  disableSvc("FTPSVC","FTP 服务(20/21)");
+  disableSvc("SharedAccess","ICS 服务(53)");
+  disableSvc("DNS","DNS 服务(53)");
+  disableSvc("SNMP","SNMP 服务(161)");
+  log("提示：SNMP 若必须保留，请修改 community 为非 public/private/admin。", "warn");
+  log("策略三执行完成。", "ok");
+}
+function profileDB(){
+  if (!needAdmin()) return;
+  log("=== 策略四：数据库暴露面收敛 ===", "hd");
+  var arr = DB_PORTS.split(","), n = 0;
+  for (var i=0;i<arr.length;i++) if (!inKeep(arr[i])) { blockPort(arr[i]); n++; }
+  log("已阻断 " + n + " 个数据库/中间件端口。", "ok");
+  dbAuthCheck();
+}
+function profileAll(){
+  if (!needAdmin()) return;
+  log("=== 全量加固（原脚本客户端模式）开始 ===", "hd");
+  hardenServicesBase();
+  fwBlockAll();
+  checkRDPListen();
+  checkFW();
+  dbAuthCheck();
+  log("=== 全量加固完成 ===", "ok");
+  refreshStats();
+}
+
+// ============================================================
+//  扫描
+// ============================================================
+function scanPorts(){
+  var r = netstatAll();
+  var lines = r.split(/\r?\n/), ports = [], seen = {};
+  var arr = ALL_PORTS.split(",");
+  for (var i=0;i<lines.length;i++){
+    if (lines[i].toUpperCase().indexOf("LISTENING") < 0) continue;
+    var m = lines[i].match(/:(\d+)\s/);
+    if (m) { var p = m[1]; if (!seen[p]) { seen[p]=1; ports.push(p); } }
+  }
+  var danger = [];
+  for (var k=0;k<ports.length;k++) if (arr.indexOf(ports[k])>=0) danger.push(ports[k]);
+  log("扫描完成：监听 " + ports.length + " 个，高危 " + danger.length + " 个。" +
+      (danger.length ? "高危监听：" + danger.join(", ") : ""), danger.length ? "warn" : "ok");
+  checkRDPListen();
+  checkFW();
+  return { ports: ports, danger: danger };
+}
+
+// === PORT_SCAN_MODULE:BEGIN ===
+// ------------------------------------------------------------
+//  端口解释知识库：常见端口 -> [用途说明, 风险等级]
+//  风险等级：critical(严重) / high(高危) / medium(中) / low(低) / info(信息)
+// ------------------------------------------------------------
+var PORT_KB = {
+  "20":["FTP 数据传输通道（主动模式），明文传输且常被用于横向移动","high"],
+  "21":["FTP 控制通道，明文传输账号口令，易被嗅探与暴力破解","high"],
+  "22":["SSH 远程登录，弱口令或密钥泄露可导致主机完全失陷","high"],
+  "23":["Telnet 远程登录，明文传输，已被视为不安全协议","critical"],
+  "25":["SMTP 邮件发送，开放可被用于垃圾邮件中继","medium"],
+  "53":["DNS 域名解析，开放递归查询可能被用于 DNS 放大攻击","medium"],
+  "69":["TFTP 简单文件传输，无认证，常被用于传播恶意文件","high"],
+  "80":["HTTP Web 服务，需关注 Web 漏洞与目录遍历","medium"],
+  "110":["POP3 邮件接收，明文认证风险","medium"],
+  "111":["RPC 端口映射（SunRPC），信息泄露与远程调用风险","high"],
+  "135":["Windows RPC 终结点映射，常被用于横向移动与勒索 worm","critical"],
+  "137":["NetBIOS 名称服务，泄露主机与域信息","high"],
+  "138":["NetBIOS 数据报服务，可被用于 NetBIOS 欺骗","high"],
+  "139":["NetBIOS 会话服务，经典 SMB 通道，存在永恒之蓝等风险","critical"],
+  "143":["IMAP 邮件接收，明文认证风险","medium"],
+  "161":["SNMP 简单网络管理，默认 community 弱口令风险","high"],
+  "162":["SNMP Trap 通知接收","medium"],
+  "389":["LDAP 目录服务，未授权访问可泄露域内账户信息","high"],
+  "443":["HTTPS Web 服务，需关注证书与 TLS 配置","low"],
+  "445":["SMB 文件共享，MS17-010 永恒之蓝与勒索软件主要入口","critical"],
+  "465":["SMTPS 邮件发送（SSL/TLS 隐式加密）","low"],
+  "512":["rexec 远程执行，明文认证，高危","critical"],
+  "513":["rlogin 远程登录，明文认证，高危","critical"],
+  "514":["rsyslog 系统日志 / rsh 远程 shell","high"],
+  "636":["LDAPS 加密目录服务","low"],
+  "873":["rsync 文件同步，未授权访问可读写服务器文件","high"],
+  "993":["IMAPS 加密邮件接收","low"],
+  "995":["POP3S 加密邮件接收","low"],
+  "1194":["OpenVPN 默认端口","low"],
+  "1352":["IBM Lotus Notes / Domino","medium"],
+  "1433":["Microsoft SQL Server 默认端口，弱口令可致数据库沦陷","critical"],
+  "1434":["SQL Server Browser 服务，泄露实例信息","medium"],
+  "1521":["Oracle Database 默认端口，未授权访问风险","critical"],
+  "2049":["NFS 网络文件系统，错误配置可导致共享暴露","high"],
+  "2181":["Zookeeper 客户端端口，未授权访问可操纵集群","high"],
+  "2375":["Docker 守护进程（未加密 API），可直接控制宿主机","critical"],
+  "2376":["Docker 守护进程（TLS 加密 API）","medium"],
+  "3260":["iSCSI 存储目标端口","medium"],
+  "3306":["MySQL 数据库默认端口，弱口令/未授权访问风险","critical"],
+  "3389":["Windows 远程桌面 RDP，暴力破解与 BlueKeep 漏洞风险","critical"],
+  "3690":["Subversion SVN 版本控制服务","medium"],
+  "4444":["Metasploit 默认监听端口 / 常见后门端口","critical"],
+  "4848":["GlassFish 管理控制台，默认弱口令风险","high"],
+  "4899":["Radmin 远程控制软件，常被恶意软件使用","high"],
+  "5432":["PostgreSQL 数据库默认端口，弱口令风险","critical"],
+  "5631":["pcAnywhere 远程控制（数据端口）","high"],
+  "5632":["pcAnywhere 远程控制（状态端口）","high"],
+  "5900":["VNC 远程桌面，弱口令风险","high"],
+  "5901":["VNC 显示端口 :1","high"],
+  "5902":["VNC 显示端口 :2","high"],
+  "5903":["VNC 显示端口 :3","high"],
+  "5904":["VNC 显示端口 :4","high"],
+  "5905":["VNC 显示端口 :5","high"],
+  "5906":["VNC 显示端口 :6","high"],
+  "5907":["VNC 显示端口 :7","high"],
+  "5908":["VNC 显示端口 :8","high"],
+  "5909":["VNC 显示端口 :9","high"],
+  "5984":["CouchDB 数据库，未授权访问风险","high"],
+  "5985":["WinRM HTTP 远程管理，可被用于横向移动","high"],
+  "5986":["WinRM HTTPS 远程管理","medium"],
+  "6129":["DameWare 远程管理工具","high"],
+  "6379":["Redis 缓存数据库，未授权访问可导致数据泄露与提权","critical"],
+  "7000":["常见后门 / Agent 通讯端口","high"],
+  "7001":["WebLogic 应用服务器默认端口，反序列化漏洞高发","critical"],
+  "7002":["WebLogic 应用服务器 SSL 端口","high"],
+  "7199":["Cassandra JMX 监控端口","medium"],
+  "7778":["常见远程控制 / 后门端口","high"],
+  "8000":["常见 Web 服务 / 开发服务器端口","medium"],
+  "8069":["Odoo ERP 系统默认端口","medium"],
+  "8080":["HTTP 代理 / Web 应用常用端口，漏洞扫描重点","medium"],
+  "8443":["HTTPS 替代端口，常见管理后台","medium"],
+  "9042":["Cassandra 数据库客户端端口","high"],
+  "9090":["WebSphere / Prometheus 管理等常用端口","medium"],
+  "9160":["Cassandra Thrift 接口端口","high"],
+  "9200":["Elasticsearch HTTP 接口，未授权访问可致数据泄露","critical"],
+  "9300":["Elasticsearch 集群内部通信端口","high"],
+  "10050":["Zabbix Agent 监控端口","medium"],
+  "10051":["Zabbix Server 监控端口","medium"],
+  "11211":["Memcached 缓存服务，未授权访问可被用于放大攻击","high"],
+  "27017":["MongoDB 数据库默认端口，未授权访问风险","critical"],
+  "27018":["MongoDB 分片配置服务器端口","high"],
+  "50000":["DB2 数据库默认端口","medium"],
+  "50050":["常见应用服务端口","medium"],
+  "50070":["Hadoop HDFS NameNode Web 界面，未授权访问风险","high"]
+};
+
+var RISK_LABEL = {
+  critical:"严重", high:"高危", medium:"中危", low:"低危", info:"信息",
+  "严重":"严重", "高危":"高危", "中危":"中危", "低危":"低危", "信息":"信息"
+};
+var RISK_CLS = {
+  critical:"red", high:"red", medium:"amber", low:"green", info:"",
+  "严重":"red", "高危":"red", "中危":"amber", "低危":"green", "信息":""
+};
+
+var _lastPortScan = null; // 缓存最近一次扫描结果，供导出使用
+
+function portExplain(port, proto){
+  var kb = PORT_KB[port];
+  if (kb) return { desc: kb[0], risk: kb[1] };
+  // 动态端口范围判断
+  var n = parseInt(port, 10);
+  if (n >= 49152 && n <= 65535) return { desc: "动态/私有临时端口（IANA 动态端口范围），通常为客户端连接或 P2P 应用", risk:"info" };
+  if (n >= 1024 && n < 49152) return { desc: "已注册端口段，常用于第三方应用程序或服务，请结合进程名确认用途", risk:"low" };
+  if (n < 1024) return { desc: "系统特权端口（Well-Known Port），请确认是否为必需的系统服务", risk:"medium" };
+  return { desc: "未知端口", risk:"info" };
+}
+
+function getProcessName(pid){
+  if (!pid || pid === "0" || pid === "4") return pid === "4" ? "System" : "—";
+  // 原生按 PID 取进程名；原实现对每个端口都启动一次 tasklist，几十个端口要好几秒
+  try { var n = wsh.ProcName(parseInt(pid, 10)); if (n) return n; } catch(e){}
+  var s = capture('tasklist /FI "PID eq ' + pid + '" /NH /FO CSV');
+  var m = s.match(/^"([^"]+)"/m);
+  return m ? m[1] : "—";
+}
+// 一次拿到全部监听端口（原生）；不可用时回退 netstat
+function netstatAll(){
+  try { var t = wsh.Listeners(); if (t && t.length) return t; } catch(e){}
+  return capture("netstat -ano");
+}
+
+function scanAllPorts(){
+  log("=== 开始扫描本机全部开放端口 ===", "hd");
+  // 一次取回 TCP 监听 + UDP（原生直接读系统表，不再启动 netstat）
+  var all = "";
+  try { all = wsh.Listeners() || ""; } catch(e){}
+  var tcp = all || capture('netstat -ano -p TCP | findstr LISTENING');
+  var udp = all || capture('netstat -ano -p UDP');
+
+  var rows = [];
+  function parse(text, proto){
+    var lines = text.split(/\r?\n/);
+    for (var i=0;i<lines.length;i++){
+      var line = lines[i];
+      var m = line.match(/^\s*(TCP|UDP)\s+(\S+):(\d+)\s+(\S+)\s+(\S+)(?:\s+(\d+))?/i);
+      if (!m) continue;
+      if (m[1].toUpperCase() !== proto) continue;   // 同一次文本里可能含两种协议
+      var local = m[2], port = m[3], state = m[5], pid = m[6] || "0";
+      // TCP 只保留 LISTENING；UDP 无状态，全部保留
+      if (proto === "TCP" && state.toUpperCase().indexOf("LISTENING") < 0) continue;
+      var key = proto + ":" + port + ":" + pid;
+      var dup = false;
+      for (var j=0;j<rows.length;j++) if (rows[j].key === key) { dup = true; break; }
+      if (dup) continue;
+      var exp = portExplain(port, proto);
+      rows.push({
+        key:key, proto:proto, port:port, pid:pid,
+        proc:getProcessName(pid), desc:exp.desc, risk:exp.risk,
+        local:local, state:state
+      });
+    }
+  }
+  parse(tcp, "TCP");
+  parse(udp, "UDP");
+
+  rows.sort(function(a,b){
+    var ar = {critical:0,high:1,medium:2,low:3,info:4};
+    var d = (ar[a.risk]||9) - (ar[b.risk]||9);
+    if (d !== 0) return d;
+    return parseInt(a.port,10) - parseInt(b.port,10);
+  });
+  _lastPortScan = rows;
+
+  var html = "";
+  if (!rows.length) {
+    html = '<tr><td colspan="6" style="color:#5f83a1;text-align:center;padding:18px">未发现开放端口（或权限不足）</td></tr>';
+  } else {
+    for (var k=0;k<rows.length;k++){
+      var r = rows[k];
+      html += '<tr title="本地地址：' + esc(r.local) + '　状态：' + esc(r.state) + '">' +
+        '<td>' + r.proto + '</td>' +
+        '<td style="font-family:Consolas,monospace;color:#67dcea">' + r.port + '</td>' +
+        '<td>' + esc(r.proc) + '</td>' +
+        '<td style="font-family:Consolas,monospace">' + r.pid + '</td>' +
+        '<td>' + esc(r.desc) + '</td>' +
+        '<td><span class="tag ' + (RISK_CLS[r.risk]||"") + '">' + (RISK_LABEL[r.risk]||"未知") + '</span></td>' +
+        '</tr>';
+    }
+  }
+  $("allPortsBody").innerHTML = html;
+
+  var crit=0, high=0, med=0;
+  for (var q=0;q<rows.length;q++){
+    if (rows[q].risk==="critical") crit++;
+    else if (rows[q].risk==="high") high++;
+    else if (rows[q].risk==="medium") med++;
+  }
+  $("allPortsSummary").innerHTML = "共发现 <b style='color:#22d3ee'>" + rows.length + "</b> 个开放端口：" +
+    "<span class='tag red'>严重 " + crit + "</span> <span class='tag red'>高危 " + high + "</span> " +
+    "<span class='tag amber'>中危 " + med + "</span> <span class='tag'>其他 " + (rows.length-crit-high-med) + "</span>";
+  log("端口扫描完成：共 " + rows.length + " 个开放端口，严重 " + crit + "，高危 " + high + "。", crit||high ? "warn" : "ok");
+  refreshStats();
+  return rows;
+}
+
+function exportPortScan(){
+  if (!_lastPortScan) { log("请先执行扫描。", "warn"); return; }
+  var d = new Date();
+  var stamp = d.getFullYear() + pad(d.getMonth()+1) + pad(d.getDate());
+  var path = "C:\\OpenPorts_Scan_" + stamp + ".txt";
+  var s = "本机开放端口扫描报告  生成时间：" + d.toLocaleString() + "\r\n";
+  s += "========================================================\r\n";
+  for (var i=0;i<_lastPortScan.length;i++){
+    var r = _lastPortScan[i];
+    s += r.proto + "\t" + r.port + "\t" + r.proc + "\tPID:" + r.pid + "\t[" + (RISK_LABEL[r.risk]||"未知") + "] " + r.desc + "\r\n";
+  }
+  try {
+    var f = fso.OpenTextFile(path, 2, true, false);
+    f.Write(s); f.Close();
+    log("端口扫描结果已导出：" + path, "ok");
+    if (typeof wsh !== "undefined" && wsh.OpenNotepad) wsh.OpenNotepad(path);
+    else if (typeof window !== "undefined" && window.external) window.external.OpenNotepad(path);
+  } catch(e){ log("导出失败：" + e.message, "err"); }
+}
+// === PORT_SCAN_MODULE:END ===
+
+// ============================================================
+//  SMB / FTP 服务器模式与白名单
+// ============================================================
+// 规则被修改后清掉原生缓存，保证下一次读取拿到最新值
+function invalidateRules(){
+  try { wsh.InvalidateRules(); } catch(e){}
+}
+function ruleIPs(name){
+  // 原生直接读防火墙规则注册表，避免每次启动 PowerShell（原实现每次约 0.6~1 秒）
+  try { return wsh.RuleIPs(name); } catch(e){}
+  return ps("(Get-NetFirewallRule -DisplayName '" + name + "' -ErrorAction SilentlyContinue | Get-NetFirewallAddressFilter).RemoteAddress -join ','").trim();
+}
+function addRule(ruleName, allow, deny, ports, extra){
+  exec('netsh advfirewall firewall delete rule name="' + ruleName + '" >nul 2>&1');
+  var r = exec('netsh advfirewall firewall add rule name="' + ruleName + '" dir=in action=allow protocol=TCP localport=' + ports + ' remoteip=' + allow + ' >nul 2>&1');
+  if (r !== 0) ps("New-NetFirewallRule -DisplayName '" + ruleName + "' -Direction Inbound -Action Allow -Protocol TCP -LocalPort " + ports + " -RemoteAddress '" + allow + "' -ErrorAction SilentlyContinue | Out-Null");
+  invalidateRules();
+  var ok = ruleIPs(ruleName);
+  log(ok ? "规则 " + ruleName + " 已放行：" + ok : "[失败] 规则 " + ruleName + " 创建失败，请检查 IP 格式。", ok ? "ok" : "err");
+  if (extra) extra(deny);
+}
+function denyRule(ruleName, deny, ports){
+  if (!deny || deny === "any") { log("拒绝 IP 留空，沿用系统默认拒绝策略。", "warn"); return; }
+  exec('netsh advfirewall firewall delete rule name="' + ruleName + '" >nul 2>&1');
+  exec('netsh advfirewall firewall add rule name="' + ruleName + '" dir=in action=block protocol=TCP localport=' + ports + ' remoteip=' + deny + ' >nul 2>&1');
+  log("拒绝范围规则已添加：" + deny, "ok");
+}
+function smbRuleAdd(allow, deny){
+  addRule("Allow_SMB_Share", allow, deny, "445,139", function(d){ denyRule("Block_SMB_Other", d, "445,139"); });
+}
+function ftpRuleAdd(allow, deny){
+  addRule("Allow_FTP_Share", allow, deny, "20,21", function(d){
+    exec('netsh advfirewall firewall delete rule name="Allow_FTP_Passive" >nul 2>&1');
+    exec('netsh advfirewall firewall add rule name="Allow_FTP_Passive" dir=in action=allow protocol=TCP localport=1024-65535 remoteip=' + allow + ' >nul 2>&1');
+    log("被动模式端口范围 1024-65535 已放行。", "ok");
+    denyRule("Block_FTP_Other", d, "20,21");
+  });
+}
+function smbServerMode(){
+  if (!needAdmin()) return;
+  var allow = normIP($("svcSmbAllow").value), deny = normIP($("svcSmbDeny").value);
+  if (!allow) { log("[警告] 允许 IP 不能为空。", "err"); return; }
+  log("=== 应用 SMB 文件共享服务器模式 ===", "hd");
+  enableSvc("LanmanServer","Server/SMB 服务(445)","auto");
+  var rp = ["445","139","20","21","22","23","53"];
+  for (var i=0;i<rp.length;i++) unblockPort(rp[i]);
+  exec('netsh advfirewall firewall delete rule name="Allow_SMB_Share" >nul 2>&1');
+  exec('netsh advfirewall firewall delete rule name="Block_SMB_Other" >nul 2>&1');
+  smbRuleAdd(allow, deny);
+  killAutoShare(); disableRDP(); killNetBIOS();
+  disableSvc("FTPSVC","FTP 服务(20/21)"); disableSvc("sshd","SSH 服务(22)");
+  disableSvc("TlntSvr","Telnet 服务(23)"); disableSvc("SharedAccess","ICS 服务(53)");
+  disableSvc("DNS","DNS 服务(53)");
+  fwBlockAll("NOSMB");
+  ps("Set-SmbServerConfiguration -EnableSMB1Protocol $false -RequireSecuritySignature $true -Force");
+  hardenNTLM();
+  log("[校验] Allow_SMB_Share 实际放行：" + (ruleIPs("Allow_SMB_Share") || "未生效"), "hd");
+  checkRDPListen(); checkFW();
+  log("SMB 服务器模式完成。客户端访问 \\\\服务器IP\\共享名。", "ok");
+  viewAllIPs();
+}
+function ftpServerMode(){
+  if (!needAdmin()) return;
+  var allow = normIP($("svcFtpAllow").value), deny = normIP($("svcFtpDeny").value);
+  if (!allow) { log("[警告] 允许 IP 不能为空。", "err"); return; }
+  if (!svcExists("FTPSVC")) { log("[警告] 未检测到 IIS FTP 服务，请先安装 FTP 服务。", "err"); return; }
+  log("=== 应用 FTP 服务器模式 ===", "hd");
+  enableSvc("FTPSVC","FTP 服务(20/21)","auto");
+  var rp = ["20","21"];
+  for (var i=0;i<rp.length;i++) unblockPort(rp[i]);
+  ftpRuleAdd(allow, deny);
+  ftpAnon(false);
+  disableSvc("LanmanServer","Server/SMB 服务(445)");
+  killAutoShare(); disableRDP(); killNetBIOS();
+  disableSvc("sshd","SSH 服务(22)"); disableSvc("TlntSvr","Telnet 服务(23)");
+  disableSvc("SharedAccess","ICS 服务(53)"); disableSvc("DNS","DNS 服务(53)");
+  fwBlockAll("NOFTP");
+  killSMBv1(); hardenNTLM();
+  log("[校验] Allow_FTP_Share 实际放行：" + (ruleIPs("Allow_FTP_Share") || "未生效"), "hd");
+  checkRDPListen(); checkFW();
+  log("FTP 服务器模式完成。客户端访问 ftp://服务器IP。", "ok");
+  viewAllIPs();
+}
+function viewAllIPs(){
+  var a = ruleIPs("Allow_SMB_Share"), b = ruleIPs("Block_SMB_Other");
+  $("ipSmbView").innerText = "允许 IP（Allow_SMB_Share）：\n  " + (a || "（无规则）") + "\n\n拒绝 IP（Block_SMB_Other）：\n  " + (b || "（无规则）");
+  var c = ruleIPs("Allow_FTP_Share"), d = ruleIPs("Block_FTP_Other");
+  $("ipFtpView").innerText = "允许 IP（Allow_FTP_Share）：\n  " + (c || "（无规则）") + "\n\n拒绝 IP（Block_FTP_Other）：\n  " + (d || "（无规则）");
+}
+function addRuleIP(name, inputId, viewId){
+  if (!needAdmin()) return;
+  var add = normIP($(inputId).value);
+  if (!add) { log("[警告] 请输入要追加的 IP。", "err"); return; }
+  var old = ruleIPs(name);
+  var finalIPs = old && old.toUpperCase() !== "ANY" ? old + "," + add : add;
+  if (!confirm("将 " + name + " 的允许 IP 更新为：\n" + finalIPs + "\n\n确认？")) return;
+  ps("Set-NetFirewallRule -DisplayName '" + name + "' -RemoteAddress '" + finalIPs + "' -ErrorAction SilentlyContinue");
+  invalidateRules();
+  var chk = ruleIPs(name);
+  log(chk ? "当前放行 IP：" + chk : "[失败] 未写入放行 IP，请检查规则是否存在。", chk ? "ok" : "err");
+  $(inputId).value = "";
+  viewAllIPs();
+}
+function delRuleIP(name, inputId, viewId){
+  if (!needAdmin()) return;
+  var del = normIP($(inputId).value);
+  if (!del) { log("[警告] 请输入要删除的 IP。", "err"); return; }
+  var old = ruleIPs(name);
+  if (!old) { log("[提示] 当前没有放行 IP。", "warn"); return; }
+  var result = ps("$old='" + old + "' -split ','; $del='" + del + "' -split ','; $new=$old.Split(',') | Where-Object { $del -notcontains $_ }; if($new){$new -join ','}else{''}").trim();
+  if (!result) {
+    exec('netsh advfirewall firewall delete rule name="' + name + '" >nul 2>&1');
+    log("放行列表已清空，规则已删除。", "ok");
+  } else {
+    ps("Set-NetFirewallRule -DisplayName '" + name + "' -RemoteAddress '" + result + "' -ErrorAction SilentlyContinue");
+    log("删除完成，剩余放行 IP：" + result, "ok");
+  }
+  invalidateRules();
+  $(inputId).value = "";
+  viewAllIPs();
+}
+
+// ============================================================
+//  端口转发 / QUIC（原 [P] 功能）
+// ============================================================
+function pfServer(){
+  if (!needAdmin()) return;
+  exec('sc config iphlpsvc start= auto >nul 2>&1');
+  exec('net start iphlpsvc >nul 2>&1');
+  var r = exec('netsh interface portproxy add v4tov4 listenport=' + PF_PORT + ' listenaddress=0.0.0.0 connectport=445 connectaddress=127.0.0.1 >nul 2>&1');
+  if (r !== 0) { log("[失败] 端口转发添加失败，请确认以管理员运行且 IP Helper 服务正常。", "err"); return; }
+  var recF = fso.OpenTextFile(wsh.ExpandEnvironmentStrings(SMB_REC), 8, true);
+  recF.WriteLine("SERVER," + PF_PORT); recF.Close();
+  exec('netsh advfirewall firewall delete rule name="Allow_SMB_PF_' + PF_PORT + '_TCP" >nul 2>&1');
+  exec('netsh advfirewall firewall add rule name="Allow_SMB_PF_' + PF_PORT + '_TCP" dir=in action=allow protocol=TCP localport=' + PF_PORT + ' >nul 2>&1');
+  exec('netsh advfirewall firewall add rule name="Allow_SMB_PF_' + PF_PORT + '_UDP" dir=in action=allow protocol=UDP localport=' + PF_PORT + ' >nul 2>&1');
+  log("服务端转发已添加：" + PF_PORT + " → 127.0.0.1:445，防火墙已放行。", "ok");
+  $("pfOut").innerText = "服务端转发：" + PF_PORT + " -> 127.0.0.1:445";
+}
+function pfClient(){
+  if (!needAdmin()) return;
+  var ip = normIP($("pfSrvIp").value);
+  if (!ip) { log("[警告] 请输入服务器 IP。", "err"); return; }
+  exec('sc config iphlpsvc start= auto >nul 2>&1');
+  exec('net start iphlpsvc >nul 2>&1');
+  var r = exec('netsh interface portproxy add v4tov4 listenport=445 listenaddress=127.0.0.1 connectport=' + PF_PORT + ' connectaddress=' + ip + ' >nul 2>&1');
+  if (r !== 0) log("[失败] 客户端转发添加失败（445 可能已被 SMB 占用）。", "err");
+  else {
+    var recF2 = fso.OpenTextFile(wsh.ExpandEnvironmentStrings(SMB_REC), 8, true);
+    recF2.WriteLine("CLIENT," + ip + "," + PF_PORT); recF2.Close();
+    log("客户端转发已添加：127.0.0.1:445 → " + ip + ":" + PF_PORT, "ok");
+    $("pfOut").innerText = "客户端转发：127.0.0.1:445 -> " + ip + ":" + PF_PORT;
+  }
+}
+function pfList(){
+  var s = capture("netsh interface portproxy show all");
+  $("pfOut").innerText = s || "（当前无转发规则）";
+}
+function pfDel(){
+  if (!needAdmin()) return;
+  var lp = normIP($("pfDelPort").value), la = normIP($("pfDelAddr").value);
+  if (!lp || !la) { log("[警告] 请填写 listenport 与 listenaddress。", "err"); return; }
+  var r = exec('netsh interface portproxy delete v4tov4 listenport=' + lp + ' listenaddress=' + la + ' >nul 2>&1');
+  if (r === 0) {
+    exec('netsh advfirewall firewall delete rule name="Allow_SMB_PF_' + lp + '_TCP" >nul 2>&1');
+    exec('netsh advfirewall firewall delete rule name="Allow_SMB_PF_' + lp + '_UDP" >nul 2>&1');
+    log("已删除转发 listenport=" + lp + " listenaddress=" + la, "ok");
+  } else log("[失败] 删除转发失败，请核对参数。", "err");
+  pfList();
+}
+function pfCleanRecords(){
+  var rec = wsh.ExpandEnvironmentStrings(SMB_REC);
+  if (!fso.FileExists(rec)) { log("[提示] 未找到本地端口转发记录。", "warn"); return; }
+  var f = fso.OpenTextFile(rec, 1, false), lines = [];
+  while (!f.AtEndOfStream) lines.push(f.ReadLine());
+  f.Close();
+  for (var i=0;i<lines.length;i++){
+    var a = lines[i].split(",");
+    if (a[0].toUpperCase() === "SERVER") {
+      exec('netsh interface portproxy delete v4tov4 listenport=' + a[1] + ' listenaddress=0.0.0.0 >nul 2>&1');
+      exec('netsh advfirewall firewall delete rule name="Allow_SMB_PF_' + a[1] + '_TCP" >nul 2>&1');
+      exec('netsh advfirewall firewall delete rule name="Allow_SMB_PF_' + a[1] + '_UDP" >nul 2>&1');
+    }
+    if (a[0].toUpperCase() === "CLIENT") exec('netsh interface portproxy delete v4tov4 listenport=445 listenaddress=127.0.0.1 >nul 2>&1');
+  }
+  fso.DeleteFile(rec, true);
+  log("已按记录清理两端端口转发与防火墙放行规则。", "ok");
+}
+function pfClean(){
+  if (!needAdmin()) return;
+  if (!confirm("确认清除本机全部 SMB 端口转发及相关放行规则？")) return;
+  pfCleanRecords();
+  pfList();
+}
+function quicCheck(){
+  var s = ps("if (Get-Command New-SmbServerAlternativePort -ErrorAction SilentlyContinue) {'YES'} else {'NO'}").trim();
+  var ok = s.indexOf("YES") >= 0;
+  $("pfOut").innerText = ok ? "本机支持 SMB over QUIC 备用端口。\n（Win11 24H2 / Server 2025+）" : "本机不支持 SMB over QUIC 备用端口。\n请使用端口转发模式 [服务端/客户端]。";
+  log(ok ? "检测到 New-SmbServerAlternativePort 命令，支持 QUIC。" : "当前系统不支持 QUIC 备用端口，请使用端口转发。", ok ? "ok" : "warn");
+}
+function quicSet(){
+  if (!needAdmin()) return;
+  var p = normIP($("quicPort").value) || PF_PORT;
+  var s = ps("if (Get-Command New-SmbServerAlternativePort -ErrorAction SilentlyContinue) {'YES'} else {'NO'}").trim();
+  if (s.indexOf("YES") < 0) { log("[提示] 当前系统不支持 New-SmbServerAlternativePort。", "err"); return; }
+  ps("New-SmbServerAlternativePort -TransportType QUIC -Port " + p + " -ErrorAction SilentlyContinue");
+  log("QUIC 备用端口已设置为 " + p + "。", "ok");
+}
+
+// ============================================================
+//  端口清单渲染
+// ============================================================
+var _portStatus = null;
+function renderPortList(st){
+  if (st !== undefined) _portStatus = st;
+  var arr = ALL_PORTS.split(","), html = "", blocked = 0;
+  for (var i=0;i<arr.length;i++){
+    var p = arr[i], cls = "port", tip = "端口 " + p;
+    if (inKeep(p)) { cls += " kept"; tip += " · 保留"; }
+    if (_portStatus) {
+      if (_portStatus[p]) { cls += " blocked"; tip += " · 已封堵"; blocked++; }
+      else { cls += " exposed"; tip += " · 未封堵"; }
+    }
+    html += '<span class="' + cls + '" data-p="' + p + '" title="' + tip + '">' + p + '</span>';
+  }
+  var box = $("portList"); if (box) box.innerHTML = html;
+  return blocked;
+}
+// 读取当前已封堵端口（原生读注册表；不可用时回退 netsh）
+function blockedPortsMap(){
+  var map = {}, raw = null;
+  try { raw = wsh.BlockedPorts(); } catch(e){ raw = null; }
+  if (raw === null || raw === undefined) {
+    var txt = capture('netsh advfirewall firewall show rule name=all | findstr "Block_Port_"');
+    var m = txt.match(/Block_Port_(\d+)/g) || [];
+    for (var i=0;i<m.length;i++) map[m[i].replace(/\D/g,"")] = 1;
+  } else {
+    var parts = String(raw).split(",");
+    for (var j=0;j<parts.length;j++) if (parts[j]) map[parts[j]] = 1;
+  }
+  return map;
+}
+// 只负责「按当前状态重绘清单与统计」，不写日志（点选封堵后复用）
+function paintPortStatus(map){
+  if (map === undefined || map === null) map = blockedPortsMap();
+  var arr = ALL_PORTS.split(","), blocked = 0, miss = [];
+  for (var i=0;i<arr.length;i++){ if (map[arr[i]]) blocked++; else miss.push(arr[i]); }
+  renderPortList(map);
+  var st = $("portStat");
+  if (st) {
+    if (blocked === arr.length) st.innerHTML = '已封堵 <b style="color:#ff9aab">' + blocked + " / " + arr.length + '</b>　全部封堵完成';
+    else if (blocked === 0) st.innerHTML = '已封堵 <b style="color:#ff9aab">0 / ' + arr.length + "</b>　尚未封堵任何高危端口";
+    else st.innerHTML = '已封堵 <b style="color:#ff9aab">' + blocked + '</b> / ' + arr.length + '　未封堵 <b style="color:#6fe0b8">' + miss.length + "</b>";
+  }
+  return { blocked: blocked, missing: miss, total: arr.length };
+}
+// 一键扫描封堵情况：绿 = 未封堵 / 红 = 已封堵
+function scanBlockStatus(){
+  var r = paintPortStatus();
+  var miss = r.missing;
+  var brief = miss.length > 15 ? miss.slice(0,15).join(",") + " 等 " + miss.length + " 个" : miss.join(", ");
+  log("封堵情况扫描完成：已封堵 " + r.blocked + " / " + r.total + " 个高危端口" +
+      (miss.length ? "；未封堵：" + brief : "；全部已封堵。"), miss.length ? "warn" : "ok");
+  return { blocked: r.blocked, missing: miss };
+}
+
+// ============================================================
+//  点选封禁：鼠标点选清单中的端口，单独封堵 / 解除
+// ============================================================
+var _portPicking = false;
+
+function togglePortPick(){
+  _portPicking = !_portPicking;
+  paintPortPickState();
+  log(_portPicking
+      ? "点选封禁已开启：单击清单中的端口即封堵，右键单击可解除。再次点击按钮退出。"
+      : "点选封禁已关闭。", _portPicking ? "hd" : "");
+  return false;
+}
+
+function paintPortPickState(){
+  var btn = $("portPickBtn"), tip = $("portPickTip"), box = $("portList");
+  if (btn) {
+    btn.className = "btn" + (_portPicking ? " picking" : "");
+    btn.innerHTML = _portPicking ? "退出点选" : "点选封禁";
+    btn.title = _portPicking ? "退出点选封禁模式" : "开启后单击清单中的端口即封堵，右键单击可解除";
+  }
+  if (tip) tip.style.display = _portPicking ? "" : "none";
+  if (box) box.className = "portlist" + (_portPicking ? " picking" : "");
+}
+
+// 找到事件源所属的端口标签
+function pickTarget(el, box){
+  var t = el;
+  while (t && t !== box) {
+    var cn = " " + (t.className || "") + " ";
+    if (cn.indexOf(" port ") >= 0) return t;
+    t = t.parentNode;
+  }
+  return null;
+}
+
+function pickPortOf(el){
+  var p = el.getAttribute ? el.getAttribute("data-p") : null;
+  if (!p) p = String(el.innerText || el.textContent || "").replace(/\D/g, "");
+  return p;
+}
+
+// 单击：封堵该端口
+function pickBlockPort(p){
+  if (!needAdmin()) return;
+  if (!/^\d+$/.test(p)) return;
+  var cur = blockedPortsMap();
+  if (cur[p]) { log("端口 " + p + " 已处于封堵状态（右键单击可解除）。", "warn"); return; }
+
+  blockPort(p);
+  invalidateRules();
+  var map = blockedPortsMap();
+  paintPortStatus(map);
+  if (map[p]) log("已封堵端口 " + p + "（TCP + UDP 入站阻断）。", "ok");
+  else log("端口 " + p + " 封堵失败：请确认以管理员身份运行，且防火墙服务未被禁用。", "err");
+}
+
+// 右键：解除该端口封堵
+function pickUnblockPort(p){
+  if (!needAdmin()) return;
+  if (!/^\d+$/.test(p)) return;
+  var cur = blockedPortsMap();
+  if (!cur[p]) { log("端口 " + p + " 当前未封堵，无需解除。", "warn"); return; }
+
+  unblockPort(p);
+  invalidateRules();
+  var map = blockedPortsMap();
+  paintPortStatus(map);
+  if (map[p]) log("端口 " + p + " 解除失败，请确认以管理员身份运行。", "err");
+  else log("已解除端口 " + p + " 的封堵（恢复放行）。", "ok");
+}
+
+// 事件绑定：委托到清单容器，重绘后依然有效
+function bindPortPick(){
+  var box = $("portList");
+  if (!box) return;
+
+  function onClick(ev){
+    if (!_portPicking) return;
+    var e = ev || window.event;
+    var el = pickTarget(e.srcElement || e.target, box);
+    if (!el) return;
+    pickBlockPort(pickPortOf(el));
+    if (e.preventDefault) e.preventDefault();
+    if (e.stopPropagation) e.stopPropagation();
+    return false;
+  }
+
+  function onContext(ev){
+    if (!_portPicking) return;
+    var e = ev || window.event;
+    var el = pickTarget(e.srcElement || e.target, box);
+    if (!el) return;
+    pickUnblockPort(pickPortOf(el));
+    if (e.preventDefault) e.preventDefault();
+    if (e.stopPropagation) e.stopPropagation();
+    return false;
+  }
+
+  if (box.addEventListener) {
+    box.addEventListener("click", onClick, false);
+    box.addEventListener("contextmenu", onContext, false);
+  } else {
+    box.attachEvent("onclick", onClick);
+    box.attachEvent("oncontextmenu", onContext);
+  }
+}
+
+// ============================================================
+//  窗口拖动 / 初始化
+// ============================================================
+//  顶部栏拖动（无边框窗口必须有，否则窗口无法移动）
+// ============================================================
+function bindDrag(){
+  var bar = document.getElementById("topbar");
+  if (!bar) return;
+  function onDown(ev){
+    var e = ev || window.event;
+    var t = e.srcElement || e.target;
+    while (t && t !== bar) {
+      var tn = (t.tagName || "").toUpperCase();
+      if (tn === "BUTTON" || tn === "INPUT" || tn === "A" || tn === "SELECT") return;
+      t = t.parentNode;
+    }
+    var btn = (typeof e.button === "number") ? e.button : 1;
+    if (btn !== 1 && btn !== 0) return;
+    // 原生宿主：交给系统执行真正的窗口拖动，跟手且无抖动
+    // （__host 仅原生宿主存在；HTA 里没有，直接走下面的回退逻辑）
+    try { if (typeof __host !== "undefined" && __host.StartDrag) { __host.StartDrag(); return; } } catch(err){}
+    // HTA 回退：跟随鼠标移动窗口
+    var sx = e.screenX, sy = e.screenY, wx = window.screenLeft, wy = window.screenTop;
+    document.onmousemove = function(){
+      var m = window.event;
+      window.moveTo(wx + (m.screenX - sx), wy + (m.screenY - sy));
+    };
+    document.onmouseup = function(){ document.onmousemove = null; document.onmouseup = null; };
+    if (e.preventDefault) e.preventDefault();
+    return false;
+  }
+  if (bar.addEventListener) bar.addEventListener("mousedown", onDown, false);
+  else bar.attachEvent("onmousedown", onDown);
+}
+(function init(){
+  window.resizeTo(1240, 820);
+  window.moveTo(Math.max(0,(screen.width-1240)/2), Math.max(0,(screen.height-820)/2));
+  var navs = document.querySelectorAll(".nav");
+  for (var i=0;i<navs.length;i++){
+    navs[i].onclick = (function(el){ return function(){ go(el.getAttribute("data-p")); }; })(navs[i]);
+  }
+  bindDrag();
+  log("网络信息采集和端口管理工具 v1.0 已启动。", "hd");
+  log("预置高危漏洞封堵策略已就绪，请在「预置封堵」页选择执行。", "hd");
+  renderPortList();
+  bindPortPick();
+  paintPortPickState();
+  // 先让界面完成首次绘制，再做状态检测，避免启动时卡着不显示
+  setTimeout(function(){
+    checkOS();
+    checkFW();
+    checkAdmin();
+    if (admin) refreshStats();
+    viewAllIPs();
+  }, 0);
+})();
+</script>
+</body>
+</html>

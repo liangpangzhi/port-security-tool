@@ -1,0 +1,27 @@
+# ---- 构建产物 ----
+bin/
+obj/
+publish/
+_sccheck/
+build/
+*.user
+*.suo
+*.pdb
+*.log
+
+# ---- 中间文件 ----
+NativeApp/ui.html.tmp
+NativeApp/_check.js
+*.cab
+
+# ---- 本机/临时 ----
+.workbuddy/
+_gh*.json
+*.bak
+*_swap.exe
+
+# ---- 图标调试用临时图（正式图标只有 app.ico） ----
+NativeApp/icon_preview*.png
+NativeApp/preview*_white.png
+NativeApp/icon_white_*_big.png
+NativeApp/icon_on_white_32.png

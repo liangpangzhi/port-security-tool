@@ -1,0 +1,55 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <AssemblyName>PortSecurityTool</AssemblyName>
+    <RootNamespace>PortSecurityTool</RootNamespace>
+    <Product>网络信息采集和端口管理工具（1.0版）</Product>
+    <AssemblyTitle>网络信息采集和端口管理工具（1.0版）</AssemblyTitle>
+    <Company>成都铁路局集团公司党校（职工培训基地）设备信息科</Company>
+    <Copyright>Copyright © 2026 成都铁路局集团公司党校（职工培训基地）设备信息科</Copyright>
+    <Description>内网终端信息采集与高危端口管理工具</Description>
+    <Version>1.0.0</Version>
+    <InformationalVersion>1.0.0</InformationalVersion>
+    <AssemblyVersion>1.0.0.0</AssemblyVersion>
+    <FileVersion>1.0.0.0</FileVersion>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <!-- 0 依赖：把 .NET 运行时与 WinForms 一起打进单文件，目标机无需安装任何运行时 -->
+    <PublishSingleFile>true</PublishSingleFile>
+    <SelfContained>true</SelfContained>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+    <SatelliteResourceLanguages>zh-Hans;en</SatelliteResourceLanguages>
+    <DebugSymbols>false</DebugSymbols>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <DebugType>none</DebugType>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <ApplicationIcon>app.ico</ApplicationIcon>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
+  </PropertyGroup>
+  <ItemGroup>
+    <AssemblyMetadata Include="BuildDate" Value="$([System.DateTime]::Now.ToString('yyyy-MM-dd'))" />
+    <AssemblyMetadata Include="BuildTime" Value="$([System.DateTime]::Now.ToString('HH:mm'))" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="ui.html" />
+    <EmbeddedResource Include="ApiDoc.md" />
+    <EmbeddedResource Include="app.ico" />
+    <Compile Remove="clicktest/**/*.cs" />
+    <Compile Remove="probe/**/*.cs" />
+    <Compile Remove="apiprobe/**/*.cs" />
+    <Compile Remove="build/**/*.cs" />
+    <Compile Remove="build_html.js" />
+    <EmbeddedResource Remove="probe/**/*" />
+    <None Remove="probe/**/*" />
+    <None Remove="apiprobe/**/*" />
+    <EmbeddedResource Remove="apiprobe/**/*" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="System.Management" Version="11.0.0" />
+  </ItemGroup>
+</Project>

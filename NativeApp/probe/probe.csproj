@@ -1,0 +1,44 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <AssemblyName>Probe</AssemblyName>
+    <RootNamespace>PortSecurityTool</RootNamespace>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <Company>成都铁路局集团公司党校（职工培训基地）设备信息科</Company>
+  </PropertyGroup>
+  <ItemGroup>
+    <AssemblyMetadata Include="BuildDate" Value="$([System.DateTime]::Now.ToString('yyyy-MM-dd'))" />
+    <AssemblyMetadata Include="BuildTime" Value="$([System.DateTime]::Now.ToString('HH:mm'))" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="ProbeProgram.cs" />
+    <Compile Include="..\Bridge.cs" />
+    <Compile Include="..\NativeApi.cs" />
+    <Compile Include="..\MainForm.cs" />
+    <Compile Include="..\AppConfig.cs" />
+    <Compile Include="..\SysInfo.cs" />
+    <Compile Include="..\XlsxWriter.cs" />
+    <Compile Include="..\Collector.cs" />
+    <Compile Include="..\WmiInfo.cs" />
+    <Compile Include="..\SystemIntegration.cs" />
+    <Compile Include="..\SingleInstance.cs" />
+    <Compile Include="..\NetDiscovery.cs" />
+    <Compile Include="..\RdpAgent.cs" />
+    <Compile Include="..\RdpClient.cs" />
+    <Compile Include="..\ApiJson.cs" />
+    <Compile Include="..\ApiReport.cs" />
+    <Compile Include="..\ApiClient.cs" />
+    <Compile Include="..\ApiServer.cs" />
+    <Compile Include="..\ApiDoc.cs" />
+    <EmbeddedResource Include="..\ApiDoc.md" LogicalName="PortSecurityTool.ApiDoc.md" />
+    <EmbeddedResource Include="..\ui.html" LogicalName="PortSecurityTool.ui.html" />
+    <EmbeddedResource Include="..\app.ico" LogicalName="PortSecurityTool.app.ico" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="System.Management" Version="11.0.0" />
+  </ItemGroup>
+</Project>

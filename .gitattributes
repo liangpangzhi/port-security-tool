@@ -1,0 +1,14 @@
+* text=auto
+
+*.cs      text eol=crlf
+*.csproj  text eol=crlf
+*.hta     text eol=crlf
+*.js      text eol=crlf
+*.md      text eol=lf
+*.json    text eol=lf
+*.py      text eol=lf
+
+*.exe     binary
+*.ico     binary
+*.png     binary
+*.xlsx    binary

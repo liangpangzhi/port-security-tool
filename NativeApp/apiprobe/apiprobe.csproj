@@ -1,0 +1,39 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <AssemblyName>ApiProbe</AssemblyName>
+    <RootNamespace>PortSecurityTool</RootNamespace>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="ApiProbeProgram.cs" />
+    <Compile Include="..\Bridge.cs" />
+    <Compile Include="..\NativeApi.cs" />
+    <Compile Include="..\MainForm.cs" />
+    <Compile Include="..\AppConfig.cs" />
+    <Compile Include="..\SysInfo.cs" />
+    <Compile Include="..\XlsxWriter.cs" />
+    <Compile Include="..\Collector.cs" />
+    <Compile Include="..\WmiInfo.cs" />
+    <Compile Include="..\SystemIntegration.cs" />
+    <Compile Include="..\SingleInstance.cs" />
+    <Compile Include="..\NetDiscovery.cs" />
+    <Compile Include="..\RdpAgent.cs" />
+    <Compile Include="..\RdpClient.cs" />
+    <Compile Include="..\ApiJson.cs" />
+    <Compile Include="..\ApiReport.cs" />
+    <Compile Include="..\ApiClient.cs" />
+    <Compile Include="..\ApiServer.cs" />
+    <Compile Include="..\ApiDoc.cs" />
+    <EmbeddedResource Include="..\ui.html" LogicalName="PortSecurityTool.ui.html" />
+    <EmbeddedResource Include="..\app.ico" LogicalName="PortSecurityTool.app.ico" />
+    <EmbeddedResource Include="..\ApiDoc.md" LogicalName="PortSecurityTool.ApiDoc.md" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="System.Management" Version="11.0.0" />
+  </ItemGroup>
+</Project>
