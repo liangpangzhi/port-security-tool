@@ -15,9 +15,29 @@ const path = require('node:path');
 const crypto = require('node:crypto');
 const { DatabaseSync } = require('node:sqlite');
 
-const ROOT = __dirname;
-const PUBLIC_DIR = path.join(ROOT, 'public');
-const CONFIG_PATH = process.env.PST_CONFIG || path.join(ROOT, 'config.json');
+// pkg 打包后 __dirname 在只读快照里；配置、数据库必须放到 exe 同级。
+const APP_ROOT = process.pkg ? path.dirname(process.execPath) : __dirname;
+const PUBLIC_DIR = path.join(__dirname, 'public');
+const CONFIG_PATH = process.env.PST_CONFIG || path.join(APP_ROOT, 'config.json');
+
+const DEFAULT_CONFIG = {
+  port: 8080,
+  host: '0.0.0.0',
+  ingestToken: 'change-me-ingest-token',
+  dashboardToken: '',
+  dbFile: 'data/pst.db',
+  staleMinutes: 10,
+};
+
+// 单 exe 首次运行：在 exe 同级生成可编辑的 config.json
+if (!fs.existsSync(CONFIG_PATH)) {
+  try {
+    fs.writeFileSync(CONFIG_PATH, JSON.stringify(DEFAULT_CONFIG, null, 2) + '\n', 'utf8');
+    console.log('[config] 已生成 ' + CONFIG_PATH + '，请修改 ingestToken 后重新启动');
+  } catch (err) {
+    console.error('[config] 无法生成配置文件：' + err.message);
+  }
+}
 
 let fileConfig = {};
 try {
@@ -37,7 +57,7 @@ const config = {
   staleMinutes: Math.max(2, Number(process.env.PST_STALE_MINUTES || fileConfig.staleMinutes || 10)),
 };
 
-const DB_PATH = path.isAbsolute(config.dbFile) ? config.dbFile : path.join(ROOT, config.dbFile);
+const DB_PATH = path.isAbsolute(config.dbFile) ? config.dbFile : path.join(APP_ROOT, config.dbFile);
 fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
 
 const db = new DatabaseSync(DB_PATH);

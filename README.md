@@ -102,6 +102,15 @@ cd NativeApp/apiprobe && dotnet build -c Release && ./bin/Release/net10.0-window
 `ServerApp/` 是配套的零依赖 Node.js 服务端，接收客户端自动上报并落库 SQLite，
 提供数据大屏：首页汇总、风险分布、24 小时趋势、暴露端口 TOP、主机清单和单机详情。
 
+内网服务器部署可直接用单 exe（无需 Node）：
+
+```
+ServerApp\dist\PST-SecurityConsole.exe
+```
+
+首次运行在 exe 同级生成 `config.json` 和 `data\pst.db`，修改令牌后重启即可。
+开发调试也可用源码运行：
+
 ```bash
 cd ServerApp
 node --no-warnings server.js     # 或双击 start.bat

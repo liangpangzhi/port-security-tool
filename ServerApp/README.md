@@ -5,34 +5,65 @@
 
 ## 技术形态
 
-- Node.js 22.5+，零外部依赖
+- Node.js 22.5+，运行时零外部依赖
 - `node:http` + `node:sqlite`（内置 SQLite）
 - 前端静态 HTML/CSS/JS，无 CDN、无构建步骤
+- 可用 `@yao-pkg/pkg` 打包为单 exe，内网服务器无需安装 Node
 - 数据文件：`data/pst.db`（首次启动自动创建）
 
 ## 启动
+
+### 方式一：单 exe 部署（推荐，内网服务器无需 Node）
+
+把 `ServerApp/dist/PST-SecurityConsole.exe` 复制到服务器任意目录，双击或命令行运行：
+
+```bat
+PST-SecurityConsole.exe
+```
+
+首次运行会在 exe 同级自动生成：
+
+```
+PST-SecurityConsole.exe
+config.json        ← 修改 ingestToken / 端口后重启
+data\pst.db        ← SQLite 数据，注意备份
+```
+
+- 大小：56 MB
+- SHA256：`15dce9323eb4924df7447c5f25a4dbcdaae4f6b132b70a766df9b532ed86143f`
+- 不需要安装 Node.js、数据库或 VC++ 运行库
+- 默认监听 `0.0.0.0:8080`，Windows 防火墙需放行 8080/TCP
+- 建议放到固定目录（如 `D:\PST-Server\`），不要放在只读目录
+- 部分杀软可能对 pkg 打包程序误报，需加白名单或做代码签名
+
+### 方式二：Node 源码运行（开发/调试）
 
 ```bash
 cd ServerApp
 node --no-warnings server.js
 ```
 
-或：
+或 `npm start`。
 
-```bash
-npm start
-```
-
-默认监听 `0.0.0.0:8080`：
+默认地址：
 
 - 数据大屏：`http://<服务器IP>:8080/`
 - 上报接口：`POST http://<服务器IP>:8080/api/v1/reports`
 
-Windows 防火墙需放行 8080/TCP。
+## 重新打包 exe
+
+```bash
+cd ServerApp
+npm ci
+npm run build:exe
+```
+
+产物：`ServerApp/dist/PST-SecurityConsole.exe`。
+打包会把 `public/` 静态资源一起写入 exe；`config.json` 和 `data/` 始终放在 exe 同级，便于部署和备份。
 
 ## 配置
 
-编辑 `ServerApp/config.json`：
+单 exe 首次运行会在 exe 同级生成 `config.json`；源码运行则编辑 `ServerApp/config.json`：
 
 ```json
 {
