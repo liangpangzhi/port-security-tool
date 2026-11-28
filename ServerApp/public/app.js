@@ -410,7 +410,7 @@ function renderPorts(report) {
   const items = report && report.ports && Array.isArray(report.ports.items) ? report.ports.items : [];
   const filtered = items.filter((p) => {
     if (state.hostFilter === 'exposed') return p.state === 'exposed';
-    if (state.hostFilter === 'critical') return p.critical;
+    if (state.hostFilter === 'critical') return p.critical && p.state === 'exposed';
     return true;
   });
   if (!filtered.length) {
@@ -418,7 +418,8 @@ function renderPorts(report) {
     return;
   }
   $('portGrid').innerHTML = filtered.map((p) => {
-    const cls = ['port', p.state === 'exposed' ? 'exposed' : 'blocked', p.critical ? 'critical' : ''].join(' ');
+    const cls = ['port', p.state === 'exposed' ? 'exposed' : 'blocked',
+      (p.critical && p.state === 'exposed') ? 'critical' : ''].join(' ');
     return `<div class="${cls}" title="${esc(p.port + ' ' + (p.service || '') + ' · ' + (p.state === 'exposed' ? '暴露' : '已封堵'))}">
       <b>${esc(p.port)}</b><span>${esc(p.service || '-')}</span>
     </div>`;
