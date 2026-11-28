@@ -501,6 +501,13 @@ namespace PortSecurityTool
             catch { }
         }
 
+        /// <summary>供界面「粘贴地址」按钮读取剪贴板，避免依赖浏览器剪贴板权限。</summary>
+        public string GetClipboardText()
+        {
+            try { return Clipboard.GetText() ?? ""; }
+            catch { return ""; }
+        }
+
         // ---------- 远程桌面（SubnetDesk） ----------
         /// <summary>启动内置的 SubnetDesk 远程桌面；target 为空则打开首页。</summary>
         public string OpenSubnetDesk(string target)

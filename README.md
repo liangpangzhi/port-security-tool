@@ -93,7 +93,7 @@ cd NativeApp/apiprobe && dotnet build -c Release && ./bin/Release/net10.0-window
 
 `API接口文档_v1.0/` 内含字段说明、JSON Schema 与脱敏示例报文，可据此对接自建服务端：
 
-- **HTTP 推送**：`POST` JSON 报文，带 `Authorization: Bearer`、`X-PST-Report-Id`（幂等键）；失败落盘待发队列，恢复后自动补发。
+- **HTTP 推送**：`POST` JSON 报文，带 `Authorization: Bearer`、`X-PST-Report-Id`（幂等键）；失败落盘待发队列，恢复后自动补发。界面中的接口地址支持 `Ctrl+V`、右键粘贴和“粘贴地址”按钮。
 - **本地查询服务**：默认 `127.0.0.1:18760`，仅监听回环，可配令牌；提供设备信息、端口状态、Schema、xlsx 报表下载。
 - **远程桌面**：旧版 `TCP 18761` 代理已停用；远程桌面统一由内置 SubnetDesk 客户端提供，不再由 PST 自身监听或放行 3389。
 

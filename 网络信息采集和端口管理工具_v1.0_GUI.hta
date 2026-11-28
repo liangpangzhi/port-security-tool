@@ -599,7 +599,7 @@ pre.console {
           <div class="card w-lg">
             <h3>数据接口 · HTTP 推送</h3>
             <p>采集完成后把标准 JSON 报文 POST 到统一接口，供服务端入库、统计与分析。契约标识 <span class="mono">port-security-tool.device-report / v1.0</span>；推送失败自动写入本地待发队列，网络恢复后自动补发，不丢数据。</p>
-            <div class="field"><label>接口地址</label><input type="text" id="apiUrl" placeholder="例如 http://10.0.0.10:8080/api/v1/device-reports"></div>
+            <div class="field"><label>接口地址</label><div class="row" style="gap:6px"><input type="text" id="apiUrl" placeholder="例如 http://10.0.0.10:8080/api/v1/reports" style="flex:1"><button class="btn ghost" onclick="pasteApiUrl()">粘贴地址</button></div></div>
             <div class="field"><label>认证令牌</label><input type="password" id="apiToken" placeholder="留空表示不修改"></div>
             <div class="field"><label>超时(秒)</label><input type="text" id="apiTimeout" value="8" style="max-width:110px"></div>
             <div class="field"><label>启用推送</label><span class="switchwrap"><input type="checkbox" id="apiPush"><span id="apiPushTip">未启用</span></span></div>
@@ -890,6 +890,18 @@ function apiSplit(s){
   return i < 0 ? [s, ""] : [s.substring(0, i), s.substring(i + 1)];
 }
 function apiTrim(s){ return String(s || "").replace(/^\s+|\s+$/g, ""); }
+
+function pasteApiUrl(){
+  var text = "";
+  try {
+    if (hasNative("GetClipboardText")) text = wsh.GetClipboardText();
+    else text = window.clipboardData.getData("Text");
+  } catch(e) {}
+  text = apiTrim(text);
+  if (!text) { log("剪贴板为空或不可读取，请手动输入接口地址。", "warn"); return; }
+  $("apiUrl").value = text;
+  log("已从剪贴板填入接口地址：" + text, "ok");
+}
 
 function loadApiSettings(){
   if (!hasNative("GetApiSettings")) return;

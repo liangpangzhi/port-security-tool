@@ -22,6 +22,13 @@ const shim = `
 // 因此这里用适配器统一补齐参数个数，业务脚本无需改动。
 var __extRef = null;
 function __ext(){ if (!__extRef) __extRef = window.external; return __extRef; }
+// 右键菜单只在可编辑输入框内放行，避免整页出现浏览器菜单，同时保留「粘贴」。
+document.oncontextmenu = function(){
+  var e = window.event;
+  var t = e ? e.srcElement : null;
+  var tag = t ? String(t.tagName || '').toUpperCase() : '';
+  return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
+};
 var __host = {
   // ---- WScript.Shell ----
   Run: function(cmd, style, wait){
@@ -71,6 +78,7 @@ var __host = {
   ApiServerState: function(){ return __ext().ApiServerState(); },
   ExportApiDoc: function(){ return __ext().ExportApiDoc(); },
   CopyText: function(t){ return __ext().CopyText(t); },
+  GetClipboardText: function(){ return __ext().GetClipboardText(); },
   OpenUrl: function(u){ return __ext().OpenUrl(u); },
   // ---- 远程桌面（SubnetDesk）----
   OpenSubnetDesk: function(target){ return __ext().OpenSubnetDesk(target || ""); },

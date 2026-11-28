@@ -55,8 +55,10 @@ namespace PortSecurityTool
                 ObjectForScripting = _bridge,
                 ScrollBarsEnabled = false,
                 AllowWebBrowserDrop = false,
-                WebBrowserShortcutsEnabled = false,
-                IsWebBrowserContextMenuEnabled = false
+                // 必须保留编辑快捷键（Ctrl+A/C/V/X），否则输入框无法粘贴；
+                // 右键菜单只在输入框内由脚本放行，其它区域仍由 oncontextmenu 拦截。
+                WebBrowserShortcutsEnabled = true,
+                IsWebBrowserContextMenuEnabled = true
             };
             Controls.Add(_browser);
 
