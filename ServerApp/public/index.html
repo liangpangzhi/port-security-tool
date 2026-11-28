@@ -39,6 +39,9 @@
       <button class="icon-btn" id="refreshBtn" title="立即刷新">
         <svg viewBox="0 0 24 24" width="17" height="17"><path d="M20 12a8 8 0 1 1-2.34-5.66M20 4v5h-5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </button>
+      <button class="icon-btn" id="settingsBtn" title="系统设置">
+        <svg viewBox="0 0 24 24" width="17" height="17"><path d="M12 15.3a3.3 3.3 0 1 0 0-6.6 3.3 3.3 0 0 0 0 6.6Z" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.88-.34 1.7 1.7 0 0 0-1.03 1.56V21a2 2 0 1 1-4 0v-.09A1.7 1.7 0 0 0 9 19.38a1.7 1.7 0 0 0-1.88.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.63 15a1.7 1.7 0 0 0-1.56-1.03H3a2 2 0 1 1 0-4h.09A1.7 1.7 0 0 0 4.62 9a1.7 1.7 0 0 0-.34-1.88l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 4.63a1.7 1.7 0 0 0 1.03-1.56V3a2 2 0 1 1 4 0v.09A1.7 1.7 0 0 0 15 4.62a1.7 1.7 0 0 0 1.88-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.37 9c.12.4.52.7.97.7H21a2 2 0 1 1 0 4h-.09a1.7 1.7 0 0 0-1.51 1.3Z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
     </div>
   </header>
 
@@ -173,6 +176,106 @@
             <thead><tr><th>采集时间</th><th class="num">风险分</th><th>等级</th><th class="num">暴露</th><th class="num">封堵</th><th class="num">严重</th><th>Report ID</th></tr></thead>
             <tbody id="historyBody"></tbody>
           </table>
+        </div>
+      </div>
+    </section>
+
+    <section id="settingsView" hidden>
+      <div class="eyebrow"><span class="live-dot"></span> SYSTEM · CONFIGURATION</div>
+      <div class="hero">
+        <div>
+          <h2>系统设置</h2>
+          <p>在这里调整服务端监听、客户端上报接口和访问令牌。修改后立即写入 `config.json`，部分项目需要重启程序后生效。</p>
+        </div>
+        <div class="hero-meta">
+          <div class="hero-meta-label">配置文件</div>
+          <div class="hero-meta-value mono" id="settingsConfigShort">—</div>
+        </div>
+      </div>
+
+      <div id="settingsBanner" class="notice" hidden></div>
+
+      <div class="settings-grid">
+        <div class="card form-card">
+          <div class="card-head">
+            <div><h3>服务监听</h3><span class="card-sub">带 * 的项目需要重启后生效</span></div>
+            <span class="tag amber">部分需重启</span>
+          </div>
+          <div class="form-row">
+            <label for="setHost">监听地址 *</label>
+            <input id="setHost" class="input mono" placeholder="0.0.0.0">
+            <p class="form-help">填 0.0.0.0 监听全部网卡；只在本机使用时填 127.0.0.1。</p>
+          </div>
+          <div class="form-row">
+            <label for="setPort">监听端口 *</label>
+            <input id="setPort" class="input mono" type="number" min="1" max="65535" placeholder="8080">
+            <p class="form-help">修改后大屏地址和客户端上报地址会同步变化，需重启服务端。</p>
+          </div>
+          <div class="form-row">
+            <label for="setPublicBaseUrl">对外访问地址</label>
+            <input id="setPublicBaseUrl" class="input mono" placeholder="http://pst.example.com:8080">
+            <p class="form-help">经过反向代理或域名访问时填写；留空则按访问请求自动推断。</p>
+          </div>
+          <div class="form-row">
+            <label for="setStaleMinutes">离线判定阈值（分钟）</label>
+            <input id="setStaleMinutes" class="input mono" type="number" min="2" max="1440" placeholder="10">
+            <p class="form-help">超过该时间未上报的主机标记为离线，保存后立即生效。</p>
+          </div>
+        </div>
+
+        <div class="card form-card">
+          <div class="card-head">
+            <div><h3>客户端上报接口</h3><span class="card-sub">客户端「数据接口」页填写这里的信息</span></div>
+            <span class="tag">INGEST</span>
+          </div>
+          <div class="endpoint-box">
+            <label>当前上报地址</label>
+            <div class="endpoint-line">
+              <code id="setIngestUrl">—</code>
+              <button id="copyIngestUrl" class="small-btn">复制</button>
+            </div>
+          </div>
+          <div class="form-row">
+            <label for="setIngestPath">上报路径</label>
+            <input id="setIngestPath" class="input mono" placeholder="/api/v1/reports">
+            <p class="form-help">不能与系统接口路径冲突；旧版内置路径仍保留兼容，客户端请使用上方生成的新地址。</p>
+          </div>
+          <div class="form-row">
+            <label for="setIngestToken">上报令牌</label>
+            <input id="setIngestToken" class="input mono" type="password" placeholder="留空表示保持当前令牌">
+            <label class="check"><input id="clearIngestToken" type="checkbox"> 清空上报令牌（不推荐）</label>
+            <p class="form-help" id="ingestTokenState">—</p>
+          </div>
+        </div>
+
+        <div class="card form-card">
+          <div class="card-head">
+            <div><h3>大屏访问</h3><span class="card-sub">限制谁能查看数据大屏</span></div>
+            <span class="tag green">DASHBOARD</span>
+          </div>
+          <div class="endpoint-box">
+            <label>当前大屏地址</label>
+            <div class="endpoint-line">
+              <code id="setDashboardUrl">—</code>
+              <button id="copyDashboardUrl" class="small-btn">复制</button>
+            </div>
+          </div>
+          <div class="form-row">
+            <label for="setDashboardToken">大屏令牌</label>
+            <input id="setDashboardToken" class="input mono" type="password" placeholder="留空表示保持当前令牌">
+            <label class="check"><input id="clearDashboardToken" type="checkbox"> 清空大屏令牌（局域网可直接访问）</label>
+            <p class="form-help" id="dashboardTokenState">—</p>
+          </div>
+        </div>
+
+        <div class="card form-card">
+          <div class="card-head">
+            <div><h3>运行信息</h3><span class="card-sub">保存后立即更新，无需重启的项目已标绿</span></div>
+            <span class="tag green">LIVE</span>
+          </div>
+          <div id="settingsInfo" class="info-list"></div>
+          <button id="saveSettingsBtn" class="primary-btn settings-save">保存配置</button>
+          <div id="settingsMsg" class="form-msg"></div>
         </div>
       </div>
     </section>

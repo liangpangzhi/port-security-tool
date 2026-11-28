@@ -12,6 +12,7 @@ const state = {
   search: '',
   risk: 'all',
   status: 'all',
+  settings: null,
   timer: null,
 };
 
@@ -66,15 +67,26 @@ function hostInitial(name) {
   return esc((s.slice(0, 2) || 'PC').toUpperCase());
 }
 
-async function api(path) {
-  const headers = {};
+async function api(path, options = {}) {
+  const headers = Object.assign({}, options.headers || {});
   if (state.token) headers['X-Dashboard-Token'] = state.token;
-  const res = await fetch(path, { headers, cache: 'no-store' });
+  if (options.body && !headers['Content-Type']) headers['Content-Type'] = 'application/json';
+
+  const res = await fetch(path, Object.assign({}, options, { headers, cache: 'no-store' }));
   if (res.status === 401) {
     showLogin('访问令牌已失效，请重新输入。');
     throw new Error('unauthorized');
   }
-  if (!res.ok) throw new Error('HTTP ' + res.status);
+  if (!res.ok) {
+    let data = null;
+    try { data = await res.json(); } catch { }
+    const msg = data && (data.error || (Array.isArray(data.errors) ? data.errors.join('；') : ''));
+    const err = new Error(msg || ('HTTP ' + res.status));
+    err.status = res.status;
+    err.data = data;
+    throw err;
+  }
+  if (res.status === 204) return null;
   return res.json();
 }
 
@@ -111,6 +123,14 @@ function bindEvents() {
   });
   $('loginBtn').addEventListener('click', tryLogin);
   $('loginToken').addEventListener('keydown', (e) => { if (e.key === 'Enter') tryLogin(); });
+  $('settingsBtn').addEventListener('click', () => { location.hash = '#/settings'; });
+  $('saveSettingsBtn').addEventListener('click', saveSettings);
+  $('copyIngestUrl').addEventListener('click', () => {
+    copyText($('setIngestUrl').textContent, '上报地址已复制');
+  });
+  $('copyDashboardUrl').addEventListener('click', () => {
+    copyText($('setDashboardUrl').textContent, '大屏地址已复制');
+  });
   window.addEventListener('hashchange', route);
 }
 
@@ -153,6 +173,10 @@ async function init() {
 
 async function refresh(silent) {
   const hash = location.hash || '#/';
+  if (hash.startsWith('#/settings')) {
+    if (!silent) await loadSettings();
+    return;
+  }
   if (hash.startsWith('#/host/')) {
     const id = decodeURIComponent(hash.slice(7));
     await loadHost(id, silent);
@@ -191,10 +215,137 @@ async function loadHost(id, silent) {
 function showSummaryView() {
   $('summaryView').hidden = false;
   $('hostView').hidden = true;
+  $('settingsView').hidden = true;
 }
 function showHostView() {
   $('summaryView').hidden = true;
   $('hostView').hidden = false;
+  $('settingsView').hidden = true;
+}
+function showSettingsView() {
+  $('summaryView').hidden = true;
+  $('hostView').hidden = true;
+  $('settingsView').hidden = false;
+}
+
+async function loadSettings(clearNotice = true) {
+  try {
+    const settings = await api('/api/settings');
+    state.settings = settings;
+    if (clearNotice) {
+      $('settingsMsg').textContent = '';
+      $('settingsMsg').classList.remove('err');
+      $('settingsBanner').hidden = true;
+    }
+    renderSettings(settings);
+    showSettingsView();
+  } catch (e) {
+    $('settingsMsg').className = 'form-msg err';
+    $('settingsMsg').textContent = '加载配置失败：' + e.message;
+    showSettingsView();
+  }
+}
+
+function renderSettings(s) {
+  $('setHost').value = s.host || '';
+  $('setPort').value = s.port || '';
+  $('setPublicBaseUrl').value = s.publicBaseUrl || '';
+  $('setIngestPath').value = s.ingestPath || '';
+  $('setStaleMinutes').value = s.staleMinutes || '';
+  $('setIngestUrl').textContent = s.ingestUrl || '—';
+  $('setDashboardUrl').textContent = s.dashboardUrl || '—';
+  $('settingsConfigShort').textContent = s.configPath || '—';
+  $('ingestTokenState').textContent = s.ingestTokenSet
+    ? '当前已配置（出于安全不显示原文），留空即保持不变。'
+    : '当前未配置，客户端上报会被拒绝。';
+  $('dashboardTokenState').textContent = s.dashboardTokenSet
+    ? '当前已启用（出于安全不显示原文），留空即保持不变。'
+    : '当前未启用，局域网内可直接访问大屏。';
+  $('setIngestToken').value = '';
+  $('setDashboardToken').value = '';
+  $('clearIngestToken').checked = false;
+  $('clearDashboardToken').checked = false;
+
+  const rows = [
+    ['配置文件路径', s.configPath || '—', true],
+    ['数据库文件', s.dbFile || '—', true],
+    ['监听地址', (s.host || '') + ':' + (s.port || ''), true],
+    ['大屏令牌', s.dashboardTokenSet ? '已启用' : '未启用'],
+    ['上报令牌', s.ingestTokenSet ? '已配置' : '未配置'],
+    ['离线阈值', (s.staleMinutes || '') + ' 分钟'],
+  ];
+  $('settingsInfo').innerHTML = rows.map(([label, value, mono]) => `
+    <div class="info-row"><label>${esc(label)}</label><div class="${mono ? 'mono' : ''}" title="${esc(value)}">${esc(value)}</div></div>`).join('');
+}
+
+async function saveSettings() {
+  const btn = $('saveSettingsBtn');
+  const msg = $('settingsMsg');
+  msg.className = 'form-msg';
+  msg.textContent = '正在保存…';
+  btn.disabled = true;
+
+  const dashboardToken = $('setDashboardToken').value.trim();
+  const clearDashboard = $('clearDashboardToken').checked;
+  const payload = {
+    host: $('setHost').value.trim(),
+    port: Number($('setPort').value),
+    publicBaseUrl: $('setPublicBaseUrl').value.trim(),
+    ingestPath: $('setIngestPath').value.trim(),
+    staleMinutes: Number($('setStaleMinutes').value),
+    ingestToken: $('setIngestToken').value.trim(),
+    clearIngestToken: $('clearIngestToken').checked,
+    dashboardToken,
+    clearDashboardToken: clearDashboard,
+  };
+
+  try {
+    const result = await api('/api/settings', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    if (clearDashboard) {
+      state.token = '';
+      localStorage.removeItem(TOKEN_KEY);
+    } else if (dashboardToken) {
+      state.token = dashboardToken;
+      localStorage.setItem(TOKEN_KEY, dashboardToken);
+    }
+    await loadSettings(false);
+
+    if (result.restartRequired) {
+      $('settingsBanner').hidden = false;
+      $('settingsBanner').textContent = '监听地址或端口已修改。当前服务仍在旧地址运行，请重启服务端后按新地址访问。';
+    }
+    msg.className = 'form-msg';
+    msg.textContent = '配置已保存到 config.json' + (result.dashboardTokenChanged ? '，大屏令牌已更新。' : '。');
+  } catch (e) {
+    msg.className = 'form-msg err';
+    msg.textContent = '保存失败：' + e.message;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function copyText(text, okMessage) {
+  const value = String(text || '').trim();
+  if (!value || value === '—') return;
+  try {
+    await navigator.clipboard.writeText(value);
+  } catch {
+    const ta = document.createElement('textarea');
+    ta.value = value;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    try { document.execCommand('copy'); } catch { }
+    document.body.removeChild(ta);
+  }
+  const msg = $('settingsMsg');
+  msg.className = 'form-msg';
+  msg.textContent = okMessage;
+  setTimeout(() => { if (msg.textContent === okMessage) msg.textContent = ''; }, 1800);
 }
 
 function renderFatal(err) {
@@ -502,6 +653,10 @@ function renderHistory(history) {
 
 function route() {
   const hash = location.hash || '#/';
+  if (hash.startsWith('#/settings')) {
+    loadSettings();
+    return;
+  }
   if (hash.startsWith('#/host/')) {
     const id = decodeURIComponent(hash.slice(7));
     if (id) loadHost(id);

@@ -4,5 +4,7 @@
   "ingestToken": "change-me-ingest-token",
   "dashboardToken": "",
   "dbFile": "data/pst.db",
-  "staleMinutes": 10
+  "staleMinutes": 10,
+  "publicBaseUrl": "",
+  "ingestPath": "/api/v1/reports"
 }

@@ -17,6 +17,8 @@ ServerApp/data/*.db-wal
 ServerApp/data/*.db-shm
 ServerApp/node_modules/
 ServerApp/dist/*.exe
+ServerApp/dist/config.json
+ServerApp/dist/data/
 
 # ---- 中间文件 ----
 NativeApp/ui.html.tmp

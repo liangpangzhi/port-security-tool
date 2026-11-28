@@ -23,6 +23,8 @@ const CONFIG_PATH = process.env.PST_CONFIG || path.join(APP_ROOT, 'config.json')
 const DEFAULT_CONFIG = {
   port: 8080,
   host: '0.0.0.0',
+  publicBaseUrl: '',
+  ingestPath: '/api/v1/reports',
   ingestToken: 'change-me-ingest-token',
   dashboardToken: '',
   dbFile: 'data/pst.db',
@@ -51,11 +53,14 @@ try {
 const config = {
   port: Number(process.env.PST_PORT || fileConfig.port || 8080),
   host: process.env.PST_HOST || fileConfig.host || '0.0.0.0',
+  publicBaseUrl: String(process.env.PST_PUBLIC_URL ?? fileConfig.publicBaseUrl ?? '').replace(/\/+$/, ''),
+  ingestPath: String(process.env.PST_INGEST_PATH ?? fileConfig.ingestPath ?? '/api/v1/reports'),
   ingestToken: process.env.PST_INGEST_TOKEN ?? fileConfig.ingestToken ?? '',
   dashboardToken: process.env.PST_DASH_TOKEN ?? fileConfig.dashboardToken ?? '',
   dbFile: process.env.PST_DB || fileConfig.dbFile || 'data/pst.db',
   staleMinutes: Math.max(2, Number(process.env.PST_STALE_MINUTES || fileConfig.staleMinutes || 10)),
 };
+if (!config.ingestPath.startsWith('/')) config.ingestPath = '/' + config.ingestPath;
 
 const DB_PATH = path.isAbsolute(config.dbFile) ? config.dbFile : path.join(APP_ROOT, config.dbFile);
 fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
@@ -183,6 +188,156 @@ function dashboardAllowed(req, url) {
   if (!config.dashboardToken) return true;
   const token = asText(req.headers['x-dashboard-token']) || asText(url.searchParams.get('token'));
   return token === config.dashboardToken;
+}
+
+function requestHostname(req) {
+  const host = asText(req.headers.host);
+  try {
+    return new URL('http://' + (host || 'localhost')).hostname;
+  } catch {
+    return host.split(':')[0] || 'localhost';
+  }
+}
+
+function baseUrlFor(req) {
+  if (config.publicBaseUrl) return config.publicBaseUrl;
+  const proto = asText(req.headers['x-forwarded-proto']).split(',')[0].trim() || 'http';
+  const host = config.host === '0.0.0.0' ? requestHostname(req) : config.host;
+  return proto + '://' + host + ':' + config.port;
+}
+
+function settingsPayload(req) {
+  const base = baseUrlFor(req).replace(/\/+$/, '');
+  return {
+    host: config.host,
+    port: config.port,
+    publicBaseUrl: config.publicBaseUrl,
+    ingestPath: config.ingestPath,
+    staleMinutes: config.staleMinutes,
+    ingestTokenSet: !!config.ingestToken,
+    dashboardTokenSet: !!config.dashboardToken,
+    ingestUrl: base + config.ingestPath,
+    dashboardUrl: base + '/',
+    configPath: CONFIG_PATH,
+    dbFile: config.dbFile,
+  };
+}
+
+function persistConfig() {
+  let current = {};
+  try { current = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8')); } catch { }
+  const next = Object.assign({}, current, {
+    port: config.port,
+    host: config.host,
+    publicBaseUrl: config.publicBaseUrl,
+    ingestPath: config.ingestPath,
+    ingestToken: config.ingestToken,
+    dashboardToken: config.dashboardToken,
+    dbFile: config.dbFile,
+    staleMinutes: config.staleMinutes,
+  });
+  const tmp = CONFIG_PATH + '.tmp-' + process.pid;
+  fs.writeFileSync(tmp, JSON.stringify(next, null, 2) + '\n', 'utf8');
+  try {
+    fs.renameSync(tmp, CONFIG_PATH);
+  } catch {
+    fs.copyFileSync(tmp, CONFIG_PATH);
+    try { fs.unlinkSync(tmp); } catch { }
+  }
+}
+
+const RESERVED_PATHS = new Set([
+  '/', '/api/health', '/api/config', '/api/settings', '/api/summary', '/api/hosts',
+]);
+
+function applySettings(input) {
+  const errors = [];
+  const values = {};
+
+  if (Object.prototype.hasOwnProperty.call(input, 'host')) {
+    const host = asText(input.host);
+    if (!host || host.length > 120 || !/^[0-9a-zA-Z.:\-]+$/.test(host)) {
+      errors.push('监听地址格式不正确（可填 0.0.0.0、127.0.0.1、IP 或主机名）');
+    } else values.host = host;
+  }
+
+  if (Object.prototype.hasOwnProperty.call(input, 'port')) {
+    const port = asInt(input.port, -1);
+    if (port < 1 || port > 65535) errors.push('端口必须是 1-65535 的整数');
+    else values.port = port;
+  }
+
+  if (Object.prototype.hasOwnProperty.call(input, 'publicBaseUrl')) {
+    let url = asText(input.publicBaseUrl).replace(/\/+$/, '');
+    if (url) {
+      try {
+        const u = new URL(url);
+        if (u.protocol !== 'http:' && u.protocol !== 'https:') throw new Error('bad protocol');
+        if (!u.hostname) throw new Error('bad host');
+        url = u.toString().replace(/\/+$/, '');
+      } catch {
+        errors.push('对外访问地址必须是完整的 http:// 或 https:// 地址');
+      }
+    }
+    values.publicBaseUrl = url;
+  }
+
+  if (Object.prototype.hasOwnProperty.call(input, 'ingestPath')) {
+    let p = asText(input.ingestPath);
+    if (!p.startsWith('/')) p = '/' + p;
+    p = p.replace(/\/{2,}/g, '/');
+    if (p.length > 120 || /\s|\?|#/.test(p)) errors.push('上报路径不能包含空格、? 或 #');
+    else if (RESERVED_PATHS.has(p) || p.startsWith('/api/hosts/')) errors.push('上报路径与系统接口冲突');
+    else values.ingestPath = p;
+  }
+
+  if (Object.prototype.hasOwnProperty.call(input, 'staleMinutes')) {
+    const m = asInt(input.staleMinutes, -1);
+    if (m < 2 || m > 1440) errors.push('离线判定必须是 2-1440 分钟');
+    else values.staleMinutes = m;
+  }
+
+  if (input.clearIngestToken === true) {
+    values.ingestToken = '';
+  } else if (asText(input.ingestToken).length > 0) {
+    const t = asText(input.ingestToken);
+    if (t.length < 8 || t.length > 200) errors.push('上报令牌长度需为 8-200 个字符');
+    else values.ingestToken = t;
+  }
+
+  if (input.clearDashboardToken === true) {
+    values.dashboardToken = '';
+  } else if (asText(input.dashboardToken).length > 0) {
+    const t = asText(input.dashboardToken);
+    if (t.length < 8 || t.length > 200) errors.push('大屏令牌长度需为 8-200 个字符');
+    else values.dashboardToken = t;
+  }
+
+  if (errors.length) return { ok: false, errors };
+
+  const old = {
+    host: config.host,
+    port: config.port,
+    publicBaseUrl: config.publicBaseUrl,
+    ingestPath: config.ingestPath,
+    ingestToken: config.ingestToken,
+    dashboardToken: config.dashboardToken,
+    staleMinutes: config.staleMinutes,
+  };
+  Object.assign(config, values);
+
+  try {
+    persistConfig();
+  } catch (err) {
+    Object.assign(config, old);
+    return { ok: false, errors: ['写入 config.json 失败：' + err.message] };
+  }
+
+  return {
+    ok: true,
+    restartRequired: config.host !== old.host || config.port !== old.port,
+    dashboardTokenChanged: config.dashboardToken !== old.dashboardToken,
+  };
 }
 
 // ---------------- 报文归一化 ----------------
@@ -606,7 +761,12 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
-    if (req.method === 'POST' && ['/api/v1/reports', '/api/report', '/report'].includes(pathname)) {
+    if (req.method === 'POST' && (
+      pathname === config.ingestPath
+      || pathname === '/api/v1/reports'
+      || pathname === '/api/report'
+      || pathname === '/report'
+    )) {
       const body = await readBody(req);
       ingestReport(req, res, body);
       return;
@@ -629,6 +789,33 @@ const server = http.createServer(async (req, res) => {
     if (pathname.startsWith('/api/')) {
       if (!dashboardAllowed(req, url)) {
         sendJson(res, 401, { ok: false, error: 'dashboard token required' });
+        return;
+      }
+
+      if (req.method === 'GET' && pathname === '/api/settings') {
+        sendJson(res, 200, settingsPayload(req));
+        return;
+      }
+
+      if (req.method === 'POST' && pathname === '/api/settings') {
+        const body = await readBody(req, 1024 * 1024);
+        let input;
+        try { input = JSON.parse(body); } catch { input = null; }
+        if (!input || typeof input !== 'object') {
+          sendJson(res, 400, { ok: false, errors: ['请求体不是有效 JSON'] });
+          return;
+        }
+        const result = applySettings(input);
+        if (!result.ok) {
+          sendJson(res, 400, { ok: false, errors: result.errors });
+          return;
+        }
+        sendJson(res, 200, {
+          ok: true,
+          restartRequired: result.restartRequired,
+          dashboardTokenChanged: result.dashboardTokenChanged,
+          settings: settingsPayload(req),
+        });
         return;
       }
 
@@ -670,7 +857,7 @@ server.listen(config.port, config.host, () => {
   console.log('  PST 终端安全运营中心');
   console.log('  ----------------------------------------');
   console.log('  数据大屏 : http://' + shownHost + ':' + config.port + '/');
-  console.log('  上报接口 : POST http://' + shownHost + ':' + config.port + '/api/v1/reports');
+  console.log('  上报接口 : POST ' + (config.publicBaseUrl || ('http://' + shownHost + ':' + config.port)) + config.ingestPath);
   console.log('  数据库   : ' + DB_PATH);
   console.log('  上报令牌 : ' + (config.ingestToken ? '已配置' : '未配置（上报会被拒绝）'));
   console.log('  大屏令牌 : ' + (config.dashboardToken ? '已启用' : '未启用（局域网可直接访问）'));

@@ -108,7 +108,8 @@ cd NativeApp/apiprobe && dotnet build -c Release && ./bin/Release/net10.0-window
 ServerApp\dist\PST-SecurityConsole.exe
 ```
 
-首次运行在 exe 同级生成 `config.json` 和 `data\pst.db`，修改令牌后重启即可。
+首次运行在 exe 同级生成 `config.json` 和 `data\pst.db`。令牌、端口、上报路径、
+对外访问地址等都可以直接在大屏「系统设置」页修改并保存，不用手动编辑文件。
 开发调试也可用源码运行：
 
 ```bash
@@ -117,8 +118,9 @@ node --no-warnings server.js     # 或双击 start.bat
 ```
 
 - 大屏：`http://<服务器IP>:8080/`
-- 上报接口：`POST http://<服务器IP>:8080/api/v1/reports`
-- 客户端「数据接口」填上面的地址和 `ingestToken`，测试推送返回 2xx 即接通
+- 系统设置：`http://<服务器IP>:8080/#/settings`
+- 上报接口：`POST http://<服务器IP>:8080/api/v1/reports`（可在设置页改路径）
+- 客户端「数据接口」填设置页显示的「当前上报地址」和 `ingestToken`，测试推送返回 2xx 即接通
 - 演示数据：`node test/seed.js`（或 `seed.bat`）
 - 详细配置、接口和安全建议见 `ServerApp/README.md`
 
