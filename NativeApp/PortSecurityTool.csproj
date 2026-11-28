@@ -39,7 +39,6 @@
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="ui.html" />
-    <EmbeddedResource Include="ApiDoc.md" />
     <EmbeddedResource Include="app.ico" />
     <EmbeddedResource Include="subnetdesk-remote.zip" LogicalName="PortSecurityTool.subnetdesk-remote.zip" Condition="'$(EmbedRemote)' == 'true'" />
     <Compile Remove="clicktest/**/*.cs" />

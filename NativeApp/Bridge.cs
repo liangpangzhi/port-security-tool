@@ -205,24 +205,14 @@ namespace PortSecurityTool
             return ver + "|" + net + "|" + arch + "|" + built + "|" + company;
         }
 
-        // ---------- 程序设置 / 数据采集 ----------
-        /// <summary>所有设置一次性返回，字段用 | 分隔，界面拆包使用。</summary>
+        // ---------- 程序设置 ----------
+        /// <summary>程序设置一次性返回：0 开机自启 | 1 关闭时最小化到托盘。</summary>
         public string GetSettings()
         {
-            string pass = AppConfig.Get("collect.pass", "");
             var parts = new[]
             {
                 SystemIntegration.AutoStartEnabled() ? "1" : "0",
                 AppConfig.GetBool("ui.tray", true) ? "1" : "0",
-                AppConfig.GetInt("collect.interval", 60).ToString(),
-                AppConfig.Get("collect.ip", ""),
-                AppConfig.Get("collect.share", ""),
-                AppConfig.Get("collect.user", ""),
-                pass.Length > 0 ? "1" : "0",
-                AppConfig.GetBool("collect.auto", false) ? "1" : "0",
-                AppConfig.Get("collect.lastTime", ""),
-                AppConfig.Get("collect.lastResult", ""),
-                Collector.NormalizeTarget(AppConfig.Get("collect.ip", ""), AppConfig.Get("collect.share", ""))
             };
             return string.Join("\u0001", parts);
         }
@@ -236,93 +226,14 @@ namespace PortSecurityTool
 
         public void SetTrayMode(bool on) { AppConfig.SetBool("ui.tray", on); }
 
-        /// <summary>保存采集配置。pass 传空表示不修改，传 __CLEAR__ 表示清空密码。</summary>
-        public string SaveCollectConfig(string ip, string share, string user, string pass, int interval, bool auto)
-        {
-            try
-            {
-                AppConfig.Set("collect.ip", (ip ?? "").Trim());
-                AppConfig.Set("collect.share", (share ?? "").Trim());
-                AppConfig.Set("collect.user", (user ?? "").Trim());
-                if (pass == "__CLEAR__") AppConfig.Set("collect.pass", "");
-                else if (!string.IsNullOrEmpty(pass)) AppConfig.Set("collect.pass", AppConfig.Protect(pass));
-                if (interval < 1) interval = 1;
-                if (interval > 10080) interval = 10080;
-                AppConfig.SetInt("collect.interval", interval);
-                AppConfig.SetBool("collect.auto", auto);
-                // 定时采集要求程序常驻，开启时自动切到托盘模式，避免用户点关闭后采集停止
-                if (auto) AppConfig.SetBool("ui.tray", true);
-                _form.RestartAutoCollect();
-                var target = Collector.NormalizeTarget(ip, share);
-                return "OK|配置已保存。" + (auto ? "定时采集已开启，每 " + interval + " 分钟执行一次（已同时开启「关闭时最小化到托盘」）。" : "定时采集未开启。") +
-                       (target.Length > 0 ? " 上报目标：" + target : " 尚未填写上报目标。");
-            }
-            catch (Exception ex) { return "ERR|保存失败：" + ex.Message; }
-        }
-
-        /// <summary>采集预览（不上报），行间 \u0001 分隔，字段间 \t 分隔。</summary>
-        public string CollectPreview() { try { return Collector.PreviewText(); } catch (Exception ex) { return "计算机名\t采集失败：" + ex.Message; } }
-
-        /// <summary>仅采集并在本地生成表格，返回 OK|路径。</summary>
-        public string CollectLocal()
-        {
-            try { return "OK|" + Collector.BuildLocalOnly(); }
-            catch (Exception ex) { return "ERR|" + ex.Message; }
-        }
-
-        /// <summary>立即采集并上报，返回 OK|消息|本地文件 或 ERR|消息|本地文件。</summary>
-        public string CollectAndSend()
-        {
-            try
-            {
-                var r = Collector.CollectAndSend(
-                    AppConfig.Get("collect.ip", ""),
-                    AppConfig.Get("collect.share", ""),
-                    AppConfig.Get("collect.user", ""),
-                    AppConfig.Unprotect(AppConfig.Get("collect.pass", "")));
-
-                AppConfig.Set("collect.lastTime", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
-                AppConfig.Set("collect.lastResult", r.Message.Replace("\r", "").Replace("\n", " | "));
-                return (r.Ok ? "OK|" : "ERR|") + r.Message.Replace("\r", "").Replace("\n", " ") + "|" + r.LocalFile;
-            }
-            catch (Exception ex) { return "ERR|" + ex.Message + "|"; }
-        }
-
-        /// <summary>打开最近一次生成的电子表格。</summary>
-        public void OpenLastReport()
-        {
-            try
-            {
-                var dir = Collector.ReportDirectory;
-                var files = Directory.GetFiles(dir, "*.xlsx");
-                if (files.Length == 0) { Collector.BuildLocalOnly(); files = Directory.GetFiles(dir, "*.xlsx"); }
-                if (files.Length == 0) return;
-                Array.Sort(files);
-                Process.Start(new ProcessStartInfo(files[files.Length - 1]) { UseShellExecute = true });
-            }
-            catch { }
-        }
-
-        /// <summary>打开上报目标共享目录。</summary>
-        public void OpenTargetFolder()
-        {
-            try
-            {
-                var unc = Collector.NormalizeTarget(AppConfig.Get("collect.ip", ""), AppConfig.Get("collect.share", ""));
-                if (unc.Length > 0) Process.Start(new ProcessStartInfo(unc) { UseShellExecute = true });
-                else Process.Start(new ProcessStartInfo(Collector.ReportDirectory) { UseShellExecute = true });
-            }
-            catch { }
-        }
-
-        /// <summary>打开配置目录（配置文件与本地报表所在位置）。</summary>
+        /// <summary>打开配置目录（配置文件所在位置）。</summary>
         public void OpenConfigDir()
         {
             try
             {
                 var cfg = AppConfig.ConfigPath;
                 var dir = Path.GetDirectoryName(cfg);
-                if (string.IsNullOrEmpty(dir)) dir = Collector.ReportDirectory;
+                if (string.IsNullOrEmpty(dir)) dir = Path.GetDirectoryName(AppConfig.ConfigPath);
                 if (Directory.Exists(dir))
                     Process.Start(new ProcessStartInfo(dir) { UseShellExecute = true });
             }
@@ -342,145 +253,98 @@ namespace PortSecurityTool
             catch { return false; }
         }
 
-        /// <summary>
-        /// 接口配置一次性返回，\\u0001 分隔：
-        /// 0 推送开关 | 1 接口地址 | 2 是否已设令牌 | 3 超时 | 4 本地服务开关 | 5 本地端口
-        /// | 6 是否已设本地令牌 | 7 本地服务地址 | 8 待发队列条数 | 9 上次推送时间 | 10 上次推送结果
-        /// </summary>
-        public string GetApiSettings()
+                                /// <summary>局域网代理状态：running|port|enabled|tokenSet|baseUrl。</summary>
+        public string GetLanAgentState()
         {
-            var parts = new[]
-            {
-                ApiClient.Enabled ? "1" : "0",
-                ApiClient.Url,
-                AppConfig.Get("api.token", "").Length > 0 ? "1" : "0",
-                ApiClient.TimeoutSec.ToString(),
-                ApiServer.Enabled ? "1" : "0",
-                ApiServer.ConfiguredPort.ToString(),
-                AppConfig.Get("api.local.token", "").Length > 0 ? "1" : "0",
-                ApiServer.BaseUrl,
-                ApiClient.OutboxCount().ToString(),
-                AppConfig.Get("api.lastTime", ""),
-                AppConfig.Get("api.lastResult", "")
-            };
-            return string.Join("\u0001", parts);
+            return (LanAgent.Running ? "1" : "0") + "|" + LanAgent.Port + "|"
+                 + (LanAgent.Enabled ? "1" : "0") + "|"
+                 + (LanAgent.Token.Length > 0 ? "1" : "0") + "|" + LanAgent.BaseUrl;
         }
 
-        /// <summary>保存接口配置。token 传空表示不修改，传 __CLEAR__ 表示清空。</summary>
-        public string SaveApiConfig(string url, string token, int timeoutSec, bool pushEnabled,
-                                    bool localEnabled, int localPort, string localToken)
+        /// <summary>保存局域网发现配置。token 传空表示不修改，传 __CLEAR__ 表示清空。</summary>
+        public string SaveLanAgentConfig(bool enabled, int port, string token)
         {
             try
             {
-                var u = (url ?? "").Trim();
-                if (u.Length > 0 && !(u.StartsWith("http://", StringComparison.OrdinalIgnoreCase)
-                                   || u.StartsWith("https://", StringComparison.OrdinalIgnoreCase)))
-                    return "ERR|接口地址需以 http:// 或 https:// 开头";
+                if (port < 1024 || port > 65535) port = LanAgent.DefaultPort;
+                AppConfig.SetInt("api.lan.port", port);
+                if (token == "__CLEAR__") AppConfig.Set("api.local.token", "");
+                else if (!string.IsNullOrEmpty(token)) AppConfig.Set("api.local.token", AppConfig.Protect(token));
+                AppConfig.SetBool("api.lan.enabled", enabled);
 
-                AppConfig.Set("api.url", u);
-                if (token == "__CLEAR__") AppConfig.Set("api.token", "");
-                else if (!string.IsNullOrEmpty(token)) AppConfig.Set("api.token", AppConfig.Protect(token));
-
-                if (timeoutSec < 3) timeoutSec = 3;
-                if (timeoutSec > 120) timeoutSec = 120;
-                AppConfig.SetInt("api.timeout", timeoutSec);
-
-                if (localPort < 1024 || localPort > 65535) localPort = ApiServer.DefaultPort;
-                AppConfig.SetInt("api.local.port", localPort);
-                if (localToken == "__CLEAR__") AppConfig.Set("api.local.token", "");
-                else if (!string.IsNullOrEmpty(localToken)) AppConfig.Set("api.local.token", AppConfig.Protect(localToken));
-
-                AppConfig.SetBool("api.local.enabled", localEnabled);
-                AppConfig.SetBool("api.enabled", pushEnabled);
-
-                // 本地服务按新配置重启（端口可能已变）
-                ApiServer.Stop();
-                string srvErr = localEnabled ? ApiServer.Start() : "";
-
-                var msg = "接口配置已保存。" + (pushEnabled ? "推送已开启。" : "推送未开启。");
-                if (localEnabled) msg += srvErr.Length == 0 ? " 本地服务已启动：" + ApiServer.BaseUrl : " " + srvErr;
-                else msg += " 本地服务未开启。";
-                return "OK|" + msg;
+                LanAgent.Stop();
+                string err = enabled ? LanAgent.Start() : "";
+                var msg = enabled
+                    ? (err.Length == 0 ? "局域网代理已启动：" + LanAgent.BaseUrl : err)
+                    : "局域网代理已关闭。";
+                return (err.Length == 0 ? "OK|" : "ERR|") + msg
+                    + " 服务端需填写同一令牌才能拉取数据。";
             }
             catch (Exception ex) { return "ERR|保存失败：" + ex.Message; }
         }
 
-        /// <summary>用界面上填写的地址做一次连通性测试（不入待发队列）。</summary>
-        public string ApiTest(string url, string token)
+        public string LanAgentAllowFirewall() { return LanAgent.AllowFirewall(); }
+
+        /// <summary>立即执行一次自动同步口径的采集推送（同「立即推送」，供界面按钮使用）。</summary>
+        public string ApiSyncNow()
+        {
+            try { return _form.UploadNow(); }
+            catch (Exception ex) { return "ERR|同步失败：" + ex.Message; }
+        }
+
+        /// <summary>
+        /// 「数据上传」页配置一次性返回，\\u0001 分隔：
+        /// 0 自动上传开关 | 1 自动上传间隔(分钟) | 2 上次上传时间 | 3 局域网代理运行中
+        /// | 4 局域网端口 | 5 局域网开关 | 6 是否已设拉取令牌 | 7 局域网代理地址 | 8 缓存采集时间
+        /// </summary>
+        public string GetUploadSettings()
+        {
+            var parts = new[]
+            {
+                AppConfig.GetBool("api.sync.enabled", true) ? "1" : "0",
+                AppConfig.GetInt("api.sync.interval", 15).ToString(),
+                AppConfig.Get("api.sync.lastTime", ""),
+                LanAgent.Running ? "1" : "0",
+                LanAgent.Port.ToString(),
+                LanAgent.Enabled ? "1" : "0",
+                LanAgent.Token.Length > 0 ? "1" : "0",
+                LanAgent.BaseUrl,
+                LanAgent.CachedAt
+            };
+            return string.Join("\u0001", parts);
+        }
+
+        /// <summary>保存「数据上传」页配置：自动上传开关与间隔、局域网代理开关与端口、访问令牌。</summary>
+        public string SaveUploadConfig(bool autoEnabled, int interval, bool lanEnabled, int lanPort, string lanToken)
         {
             try
             {
-                var u = (url ?? "").Trim();
-                if (u.Length == 0) u = ApiClient.Url;
-                if (u.Length == 0) return "ERR|请先填写接口地址";
-                var tk = string.IsNullOrEmpty(token) ? ApiClient.Token : token;
-                var r = ApiClient.Test(u, tk, ApiClient.TimeoutSec);
-                return (r.Ok ? "OK|" : "ERR|") + "HTTP " + r.Status + " " + r.Message
-                     + "｜报文 " + ApiReport.SchemaName + "/" + ApiReport.SchemaVersion;
+                if (interval < 1) interval = 1;
+                if (interval > 10080) interval = 10080;
+                AppConfig.SetInt("api.sync.interval", interval);
+                AppConfig.SetBool("api.sync.enabled", autoEnabled);
+
+                if (lanPort < 1024 || lanPort > 65535) lanPort = LanAgent.DefaultPort;
+                AppConfig.SetInt("api.lan.port", lanPort);
+                if (lanToken == "__CLEAR__") AppConfig.Set("api.local.token", "");
+                else if (!string.IsNullOrEmpty(lanToken)) AppConfig.Set("api.local.token", AppConfig.Protect(lanToken));
+                AppConfig.SetBool("api.lan.enabled", lanEnabled);
+
+                LanAgent.Stop();
+                string err = lanEnabled ? LanAgent.Start() : "";
+                try { _form.RestartApiSync(); } catch { }
+
+                var msg = "配置已保存。";
+                msg += autoEnabled ? " 自动上传已开启，每 " + interval + " 分钟刷新一次数据。" : " 自动上传未开启。";
+                msg += lanEnabled
+                    ? (err.Length == 0 ? " 局域网代理运行中：" + LanAgent.BaseUrl : " " + err)
+                    : " 局域网代理已关闭，服务端将扫描不到本机。";
+                return (err.Length == 0 ? "OK|" : "ERR|") + msg;
             }
-            catch (Exception ex) { return "ERR|测试失败：" + ex.Message; }
+            catch (Exception ex) { return "ERR|保存失败：" + ex.Message; }
         }
 
-        /// <summary>立即按当前配置推送一次（仅接口，不走共享）。</summary>
-        public string ApiPushNow()
-        {
-            try
-            {
-                if (ApiClient.Url.Length == 0) return "ERR|未配置接口地址";
-                var s = Collector.Collect();
-                var r = ApiClient.Push(s, null);
-                AppConfig.Set("api.lastTime", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
-                AppConfig.Set("api.lastResult",
-                    (r.Ok ? "成功 HTTP " + r.Status : "失败 " + r.Message).Replace("\r", "").Replace("\n", " "));
-                string extra = r.Queued ? "（已进入待发队列，共 " + ApiClient.OutboxCount() + " 条）" : "";
-                return (r.Ok ? "OK|" : "ERR|") + "HTTP " + r.Status + " " + r.Message + extra;
-            }
-            catch (Exception ex) { return "ERR|推送失败：" + ex.Message; }
-        }
-
-        /// <summary>补发待发队列，返回 OK|已补发 x/y。</summary>
-        public string ApiFlushOutbox()
-        {
-            try
-            {
-                if (!ApiClient.Enabled) return "ERR|推送未开启，无需补发";
-                if (ApiClient.Url.Length == 0) return "ERR|未配置接口地址";
-                string r = ApiClient.FlushOutbox(50);
-                return "OK|补发结果 " + r + "，剩余 " + ApiClient.OutboxCount() + " 条";
-            }
-            catch (Exception ex) { return "ERR|补发失败：" + ex.Message; }
-        }
-
-        /// <summary>本地服务状态：running|port|baseUrl|enabled。</summary>
-        public string ApiServerState()
-        {
-            return (ApiServer.Running ? "1" : "0") + "|" + ApiServer.Port + "|" + ApiServer.BaseUrl
-                 + "|" + (ApiServer.Enabled ? "1" : "0");
-        }
-
-        /// <summary>把接口文档与契约文件导出到配置目录并打开，交给未来的服务端开发使用。</summary>
-        public string ExportApiDoc()
-        {
-            try
-            {
-                var dir = Path.Combine(
-                    Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-                    "PortSecurityTool", "api");
-                Directory.CreateDirectory(dir);
-
-                string doc = ApiDoc.Text;
-                File.WriteAllText(Path.Combine(dir, "API接口说明_v" + ApiReport.SchemaVersion + ".md"), doc, new UTF8Encoding(false));
-                File.WriteAllText(Path.Combine(dir, "schema_" + ApiReport.SchemaVersion + ".json"), ApiReport.SchemaJson(), new UTF8Encoding(false));
-                File.WriteAllText(Path.Combine(dir, "example_" + ApiReport.SchemaVersion + ".json"),
-                    ApiReport.ToJson(Collector.Collect(), null, true), new UTF8Encoding(false));
-
-                Process.Start(new ProcessStartInfo(dir) { UseShellExecute = true });
-                return "OK|已导出到 " + dir;
-            }
-            catch (Exception ex) { return "ERR|导出失败：" + ex.Message; }
-        }
-
-        /// <summary>用系统默认浏览器打开地址（本地接口页等）。</summary>
+                /// <summary>用系统默认浏览器打开地址（本地接口页等）。</summary>
         public void OpenUrl(string url)
         {
             try
@@ -501,14 +365,7 @@ namespace PortSecurityTool
             catch { }
         }
 
-        /// <summary>供界面「粘贴地址」按钮读取剪贴板，避免依赖浏览器剪贴板权限。</summary>
-        public string GetClipboardText()
-        {
-            try { return Clipboard.GetText() ?? ""; }
-            catch { return ""; }
-        }
-
-        // ---------- 远程桌面（SubnetDesk） ----------
+                // ---------- 远程桌面（SubnetDesk） ----------
         /// <summary>启动内置的 SubnetDesk 远程桌面；target 为空则打开首页。</summary>
         public string OpenSubnetDesk(string target)
         {

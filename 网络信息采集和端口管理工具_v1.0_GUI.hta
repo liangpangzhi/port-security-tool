@@ -302,7 +302,7 @@ pre.console {
       <button class="nav" data-p="ip"><span class="ic">◎</span>IP 白名单</button>
       <button class="nav" data-p="pf"><span class="ic">⇄</span>端口转发</button>
       <button class="nav" data-p="rdp"><span class="ic">▣</span>远程桌面</button>
-      <button class="nav" data-p="collect"><span class="ic">⇪</span>数据采集</button>
+      <button class="nav" data-p="collect"><span class="ic">⇪</span>数据上传</button>
       <button class="nav" data-p="about"><span class="ic">ⓘ</span>关于</button>
       <div class="nav-sub">SECURITY OPERATIONS CENTER<br>内网终端 · 高危端口管控<br><span style="color:#3f6a86">成都局集团公司党校（职工培训基地）设备信息科</span></div>
     </div>
@@ -558,93 +558,38 @@ pre.console {
         </div>
       </div>
 
-      <!-- ============ 数据采集 ============ -->
+      <!-- ============ 数据上传 ============ -->
       <div class="page" id="p-collect">
-        <div class="page-head"><h2>本机数据采集</h2><p>采集本机硬件名称、计算机名与端口封堵情况，生成电子表格并上报到指定 IP 的共享目录。</p></div>
+        <div class="page-head"><h2>数据上传</h2><p>本机采集数据自动上传到局域网服务端：服务端扫描到本机后即可直接拉取最新快照，大屏实时汇总。</p></div>
         <div class="grid">
 
-          <div class="card w-md">
-            <h3>上报目标</h3>
-            <p>接收端需事先创建共享文件夹并授予写入权限。表格按「计算机名_采集日期」命名写入该共享目录，当天重复采集只覆盖当天文件；填账号可自动完成共享认证。</p>
-            <div class="field"><label>目标 IP</label><input type="text" id="colIp" placeholder="例如 192.168.1.100"></div>
-            <div class="field"><label>共享名</label><input type="text" id="colShare" placeholder="例如 设备信息采集"></div>
-            <div class="field"><label>用户名</label><input type="text" id="colUser" placeholder="留空则用当前登录凭据"></div>
-            <div class="field"><label>密码</label><input type="password" id="colPass" placeholder="留空表示不修改"></div>
-            <div class="row" style="margin-top:12px">
-              <button class="btn primary" onclick="saveCollectConfig()">保存配置</button>
-              <button class="btn ghost" onclick="openTargetFolder()">打开目标目录</button>
-            </div>
-            <p class="hint" id="colTarget" style="margin-top:9px">当前目标：—</p>
-          </div>
-
-          <div class="card w-md">
-            <h3>采集与上报</h3>
-            <p>手动采集立即执行一次；定时采集在后台运行，窗口最小化到托盘也照常执行。</p>
+          <div class="card w-lg">
+            <h3>数据自动上传服务端</h3>
+            <p>开启后按间隔自动重新采集本机数据并刷新上传缓存，服务端任何时刻拉取到的都是最新快照；窗口最小化到托盘也照常执行。</p>
             <div class="field">
-              <label>定时采集</label>
-              <span class="switchwrap"><input type="checkbox" id="colAuto"><span id="colAutoTip">未启用</span></span>
+              <label>自动上传</label>
+              <span class="switchwrap"><input type="checkbox" id="upAuto"><span id="upAutoTip">未启用</span></span>
             </div>
-            <div class="field"><label>间隔(分钟)</label><input type="text" id="colInterval" value="60" style="max-width:110px"></div>
+            <div class="field"><label>上传间隔(分钟)</label><input type="text" id="upInterval" value="15" style="max-width:110px"></div>
             <div class="row" style="margin-top:12px">
-              <button class="btn" onclick="doCollectPreview()">采集预览</button>
-              <button class="btn enable" onclick="doCollectSend()">立即采集并上报</button>
+              <button class="btn primary" onclick="saveUploadConfig()">保存配置</button>
+              <button class="btn enable" onclick="uploadNow()">立即上传</button>
             </div>
-            <div class="row" style="margin-top:8px">
-              <button class="btn ghost" onclick="doCollectLocal()">仅生成本地表格</button>
-              <button class="btn ghost" onclick="openLastReport()">打开最近表格</button>
-            </div>
-            <p class="hint" id="colLast" style="margin-top:10px">上次上报：—</p>
-          </div>
-
-          <div class="card w-lg">
-            <h3>数据接口 · HTTP 推送</h3>
-            <p>采集完成后把标准 JSON 报文 POST 到统一接口，供服务端入库、统计与分析。契约标识 <span class="mono">port-security-tool.device-report / v1.0</span>；推送失败自动写入本地待发队列，网络恢复后自动补发，不丢数据。</p>
-            <div class="field"><label>接口地址</label><div class="row" style="gap:6px"><input type="text" id="apiUrl" placeholder="例如 http://10.0.0.10:8080/api/v1/reports" style="flex:1"><button class="btn ghost" onclick="pasteApiUrl()">粘贴地址</button></div></div>
-            <div class="field"><label>认证令牌</label><input type="password" id="apiToken" placeholder="留空表示不修改"></div>
-            <div class="field"><label>超时(秒)</label><input type="text" id="apiTimeout" value="8" style="max-width:110px"></div>
-            <div class="field"><label>启用推送</label><span class="switchwrap"><input type="checkbox" id="apiPush"><span id="apiPushTip">未启用</span></span></div>
-            <div class="row" style="margin-top:12px">
-              <button class="btn primary" onclick="saveApiConfig()">保存接口配置</button>
-              <button class="btn" onclick="apiTestPush()">测试推送</button>
-              <button class="btn enable" onclick="apiPushNow()">立即推送</button>
-              <button class="btn ghost" onclick="apiFlush()">补发队列</button>
-            </div>
-            <p class="hint" id="apiState" style="margin-top:9px">推送状态：—</p>
+            <p class="hint" id="upState" style="margin-top:9px">上传状态：—</p>
           </div>
 
           <div class="card w-md">
-            <h3>数据接口 · 本地服务</h3>
-            <p>在本机回环地址开启只读查询接口，供服务端采集器直接拉取（无需终端外联）。默认关闭。</p>
-            <div class="field"><label>启用服务</label><span class="switchwrap"><input type="checkbox" id="apiLocal"><span id="apiLocalTip">未启用</span></span></div>
-            <div class="field"><label>监听端口</label><input type="text" id="apiLocalPort" value="18760" style="max-width:110px"></div>
-            <div class="field"><label>访问令牌</label><input type="password" id="apiLocalToken" placeholder="留空表示不修改"></div>
+            <h3>局域网发现 · 供服务端扫描</h3>
+            <p>本机在局域网内广播身份并开放只读拉取接口，服务端「一键扫描」即可发现本机并定时取走数据。端口需与服务端「发现端口」一致。</p>
+            <div class="field"><label>允许服务端发现</label><span class="switchwrap"><input type="checkbox" id="lanEnabled"><span id="lanTip">未启用</span></span></div>
+            <div class="field"><label>发现端口</label><input type="text" id="lanPort" value="18762" style="max-width:110px"></div>
+            <div class="field"><label>访问令牌</label><input type="password" id="lanToken" placeholder="留空表示不修改"></div>
             <div class="row" style="margin-top:12px">
-              <button class="btn primary" onclick="saveApiConfig()">保存并应用</button>
-              <button class="btn ghost" onclick="copyApiBase()">复制地址</button>
-              <button class="btn ghost" onclick="openApiPage()">浏览器打开</button>
+              <button class="btn primary" onclick="saveUploadConfig()">保存并应用</button>
+              <button class="btn ghost" onclick="lanAllowFirewall()">放行防火墙</button>
+              <button class="btn ghost" onclick="copyLanBase()">复制地址</button>
             </div>
-            <p class="hint" id="apiLocalState" style="margin-top:9px">服务状态：—</p>
-          </div>
-
-          <div class="card w-md">
-            <h3>接口契约</h3>
-            <div class="kv">
-              <div class="kvrow"><div class="k">契约标识</div><div class="v mono">device-report</div></div>
-              <div class="kvrow"><div class="k">契约版本</div><div class="v mono">v1.0</div></div>
-              <div class="kvrow"><div class="k">报文格式</div><div class="v">JSON / UTF-8</div></div>
-              <div class="kvrow"><div class="k">待发队列</div><div class="v mono" id="apiOutbox">0 条</div></div>
-            </div>
-            <div class="row" style="margin-top:12px">
-              <button class="btn ghost" onclick="exportApiDoc()">导出接口文档</button>
-            </div>
-            <p class="hint" style="margin-top:9px">导出接口说明、JSON Schema 与本机报文示例，可直接交给服务端开发使用。</p>
-          </div>
-
-          <div class="card w-lg">
-            <h3>采集内容预览</h3>
-            <div class="kv" id="colPreview">
-              <div class="kvrow"><div class="k">状态</div><div class="v">点击「采集预览」读取本机信息</div></div>
-            </div>
+            <p class="hint" id="lanState" style="margin-top:9px">代理状态：—</p>
           </div>
 
           <div class="card w-lg">
@@ -658,7 +603,7 @@ pre.console {
               </div>
             </div>
             <div class="switchrow">
-              <div><div class="nm">关闭时最小化到托盘</div><div class="ds">点击关闭按钮不退出程序，继续执行定时采集与端口防护；从托盘菜单可彻底退出</div></div>
+              <div><div class="nm">关闭时最小化到托盘</div><div class="ds">点击关闭按钮不退出程序，继续执行自动上传与端口防护；从托盘菜单可彻底退出</div></div>
               <div>
                 <button class="btn sm enable" onclick="setTrayMode(true)">启用</button>
                 <button class="btn sm danger" onclick="setTrayMode(false)">关闭</button>
@@ -666,7 +611,7 @@ pre.console {
               </div>
             </div>
             <div class="switchrow">
-              <div><div class="nm">配置文件与本地表格</div><div class="ds">采集目标、间隔与设置保存在用户目录，密码经混淆存储；生成的表格本地留有一份</div></div>
+              <div><div class="nm">配置文件</div><div class="ds">上传间隔、发现端口与令牌保存在用户目录，令牌经混淆存储</div></div>
               <div><button class="btn sm ghost" onclick="openConfigDir()">打开配置目录</button></div>
             </div>
           </div>
@@ -710,7 +655,7 @@ pre.console {
             <div class="modlist">
               <span>安全总览</span><span>预置封堵</span><span>端口与防火墙</span><span>共享与服务</span>
               <span>IP 白名单</span><span>端口转发</span><span>全端口扫描与解释</span><span>封堵状态可视化</span>
-              <span>局域网发现</span><span>远程桌面</span><span>本机数据采集</span><span>定时上报</span><span>数据接口(API)</span><span>开机自启</span><span>托盘后台运行</span>
+              <span>局域网发现</span><span>远程桌面</span><span>数据自动上传</span><span>局域网扫描拉取</span><span>开机自启</span><span>托盘后台运行</span>
             </div>
           </div>
           <div class="card w-lg">
@@ -790,214 +735,100 @@ function go(p){
   if (p === "ip") viewAllIPs();
   if (p === "fw") renderPortList();
   if (p === "about") fillAbout();
-  if (p === "collect") loadCollectSettings();
+  if (p === "collect") loadUploadSettings();
   if (p === "rdp") rdpInit();
 }
 
 // ============================================================
-//  数据采集 / 程序设置
+//  数据上传 / 程序设置
 // ============================================================
 function hasNative(name){
   try { return !!(wsh && wsh[name]); } catch(e){ return false; }
 }
 
-function loadCollectSettings(){
-  loadApiSettings();
+function apiSplit(s){
+  var i = String(s || "").indexOf("|");
+  return i < 0 ? [String(s || ""), ""] : [String(s).substring(0, i), String(s).substring(i + 1)];
+}
+function apiTrim(s){ return String(s || "").replace(/^\s+|\s+$/g, ""); }
+
+function loadUploadSettings(){
   var st = $("autoStartState"), ts = $("trayState");
-  if (!hasNative("GetSettings")) {
+  if (!hasNative("GetUploadSettings")) {
     if (st) { st.innerText = "仅 EXE 版支持"; st.className = "hint state-off"; }
     if (ts) { ts.innerText = "仅 EXE 版支持"; ts.className = "hint state-off"; }
     return;
   }
   try {
-    var a = String(wsh.GetSettings()).split("\u0001");
-    $("colIp").value = a[3] || "";
-    $("colShare").value = a[4] || "";
-    $("colUser").value = a[5] || "";
-    $("colPass").value = "";
-    $("colPass").placeholder = (a[6] === "1") ? "已设置，留空不修改" : "留空表示不设置";
-    $("colInterval").value = a[2] || "60";
-    $("colAuto").checked = (a[7] === "1");
-    $("colAutoTip").innerText = (a[7] === "1") ? "已启用" : "未启用";
-    $("colTarget").innerText = "当前目标：" + (a[10] || "未配置");
-    $("colLast").innerText = "上次上报：" + (a[8] ? a[8] + "　" + (a[9] || "") : "暂无记录");
-    if (st) { st.innerText = (a[0] === "1") ? "已启用" : "未启用"; st.className = "hint " + (a[0] === "1" ? "state-on" : "state-off"); }
-    if (ts) { ts.innerText = (a[1] === "1") ? "已启用" : "未启用"; ts.className = "hint " + (a[1] === "1" ? "state-on" : "state-off"); }
-  } catch(e) { log("读取采集配置失败：" + e.message, "err"); }
+    var a = String(wsh.GetUploadSettings()).split("\u0001");
+    $("upAuto").checked = (a[0] === "1");
+    $("upAutoTip").innerText = (a[0] === "1") ? "已启用" : "未启用";
+    $("upInterval").value = a[1] || "15";
+    $("lanEnabled").checked = (a[5] === "1");
+    $("lanTip").innerText = (a[5] === "1") ? "已启用" : "未启用";
+    $("lanPort").value = a[4] || "18762";
+    $("lanToken").value = "";
+    $("lanToken").placeholder = (a[6] === "1") ? "已设置，留空不修改" : "留空表示不设置（服务端可免令牌拉取）";
+
+    var up = "上传状态：";
+    if (a[0] === "1") up += "自动上传已开启，每 " + (a[1] || "15") + " 分钟刷新一次数据。";
+    else up += "自动上传未开启。";
+    if (a[2]) up += "　上次上传 " + a[2];
+    if (a[8]) up += "　数据缓存 " + a[8];
+    $("upState").innerText = up;
+
+    $("lanState").innerText = "代理状态：" + (a[3] === "1"
+      ? "运行中　" + (a[7] || "")
+      : (a[5] === "1" ? "已配置但未运行，请点「保存并应用」重试" : "未开启，服务端扫描不到本机"));
+
+    if (hasNative("GetSettings")) {
+      var g = String(wsh.GetSettings()).split("\u0001");
+      if (st) { st.innerText = (g[0] === "1") ? "已启用" : "未启用"; st.className = "hint " + (g[0] === "1" ? "state-on" : "state-off"); }
+      if (ts) { ts.innerText = (g[1] === "1") ? "已启用" : "未启用"; ts.className = "hint " + (g[1] === "1" ? "state-on" : "state-off"); }
+    }
+  } catch(e) { log("读取上传配置失败：" + e.message, "err"); }
 }
 
-function saveCollectConfig(){
-  if (!hasNative("SaveCollectConfig")) { log("当前运行方式不支持采集上报（请使用 EXE 版）。", "warn"); return; }
-  var ip = $("colIp").value.replace(/^\s+|\s+$/g, "");
-  var share = $("colShare").value.replace(/^\s+|\s+$/g, "");
-  var user = $("colUser").value.replace(/^\s+|\s+$/g, "");
-  var pass = $("colPass").value;
-  var iv = parseInt($("colInterval").value, 10); if (isNaN(iv) || iv < 1) iv = 60;
-  var auto = $("colAuto").checked;
-  var r = String(wsh.SaveCollectConfig(ip, share, user, pass, iv, auto)).split("|");
+function saveUploadConfig(){
+  if (!hasNative("SaveUploadConfig")) { log("当前运行方式不支持数据上传（请使用 EXE 版）。", "warn"); return; }
+  var interval = parseInt(apiTrim($("upInterval").value), 10); if (isNaN(interval) || interval < 1) interval = 15;
+  var port = parseInt(apiTrim($("lanPort").value), 10); if (isNaN(port) || port < 1024 || port > 65535) port = 18762;
+  var r = apiSplit(wsh.SaveUploadConfig($("upAuto").checked, interval, $("lanEnabled").checked, port, $("lanToken").value));
   log(r[1], r[0] === "OK" ? "ok" : "err");
-  $("colPass").value = "";
-  loadCollectSettings();
+  $("lanToken").value = "";
+  loadUploadSettings();
 }
 
-function renderCollectPreview(txt){
-  var box = $("colPreview"); if (!box) return;
-  var rows = String(txt).split("\u0001"), html = "";
-  for (var i=0;i<rows.length;i++){
-    if (!rows[i]) continue;
-    var p = rows[i].split("\t");
-    html += '<div class="kvrow"><div class="k">' + esc(p[0] || "") + '</div><div class="v">' + esc(p[1] || "") + '</div></div>';
-  }
-  box.innerHTML = html || '<div class="kvrow"><div class="k">状态</div><div class="v">无数据</div></div>';
-}
-
-function doCollectPreview(){
-  if (!hasNative("CollectPreview")) { log("当前运行方式不支持采集（请使用 EXE 版）。", "warn"); return; }
-  try {
-    renderCollectPreview(String(wsh.CollectPreview()));
-    log("已采集本机信息（仅预览，未上报）。", "ok");
-  } catch(e) { log("采集失败：" + e.message, "err"); }
-}
-
-function doCollectSend(){
-  if (!hasNative("CollectAndSend")) { log("当前运行方式不支持采集上报（请使用 EXE 版）。", "warn"); return; }
-  log("正在采集本机信息并上报…", "hd");
-  try {
-    var r = String(wsh.CollectAndSend()).split("|");
-    log(r[1], r[0] === "OK" ? "ok" : "err");
-    loadCollectSettings();
-  } catch(e) { log("上报失败：" + e.message, "err"); }
-}
-
-function doCollectLocal(){
-  if (!hasNative("CollectLocal")) { log("当前运行方式不支持采集（请使用 EXE 版）。", "warn"); return; }
-  try {
-    var r = String(wsh.CollectLocal()).split("|");
-    if (r[0] === "OK") log("已生成本地表格：" + r[1], "ok");
-    else log("生成失败：" + r[1], "err");
-  } catch(e) { log("生成失败：" + e.message, "err"); }
-}
-
-function openLastReport(){ try { if (hasNative("OpenLastReport")) wsh.OpenLastReport(); } catch(e){} }
-function openTargetFolder(){ try { if (hasNative("OpenTargetFolder")) wsh.OpenTargetFolder(); } catch(e){} }
-function openConfigDir(){ try { if (hasNative("OpenConfigDir")) wsh.OpenConfigDir(); } catch(e){} }
-
-// ============================================================
-//  数据接口（API）
-// ============================================================
-function apiSplit(s){
-  s = String(s); var i = s.indexOf("|");
-  return i < 0 ? [s, ""] : [s.substring(0, i), s.substring(i + 1)];
-}
-function apiTrim(s){ return String(s || "").replace(/^\s+|\s+$/g, ""); }
-
-function pasteApiUrl(){
-  var text = "";
-  try {
-    if (hasNative("GetClipboardText")) text = wsh.GetClipboardText();
-    else text = window.clipboardData.getData("Text");
-  } catch(e) {}
-  text = apiTrim(text);
-  if (!text) { log("剪贴板为空或不可读取，请手动输入接口地址。", "warn"); return; }
-  $("apiUrl").value = text;
-  log("已从剪贴板填入接口地址：" + text, "ok");
-}
-
-function loadApiSettings(){
-  if (!hasNative("GetApiSettings")) return;
-  try {
-    var a = String(wsh.GetApiSettings()).split("\u0001");
-    $("apiPush").checked = (a[0] === "1");
-    $("apiPushTip").innerText = (a[0] === "1") ? "已启用" : "未启用";
-    $("apiUrl").value = a[1] || "";
-    $("apiToken").value = "";
-    $("apiToken").placeholder = (a[2] === "1") ? "已设置，留空不修改" : "留空表示不设置";
-    $("apiTimeout").value = a[3] || "8";
-    $("apiLocal").checked = (a[4] === "1");
-    $("apiLocalTip").innerText = (a[4] === "1") ? "已启用" : "未启用";
-    $("apiLocalPort").value = a[5] || "18760";
-    $("apiLocalToken").value = "";
-    $("apiLocalToken").placeholder = (a[6] === "1") ? "已设置，留空不修改" : "留空表示不设置";
-    $("apiOutbox").innerText = (a[8] || "0") + " 条";
-
-    var st = "推送状态：" + (a[0] === "1" ? "已开启（" + (a[1] ? a[1] : "未填写地址") + "）" : "未开启");
-    if (a[9]) st += "　上次 " + a[9] + " " + (a[10] || "");
-    $("apiState").innerText = st;
-
-    var sv = ["0", "0", a[7] || "", "0"];
-    if (hasNative("ApiServerState")) sv = String(wsh.ApiServerState()).split("|");
-    $("apiLocalState").innerText = "服务状态：" + (sv[0] === "1"
-      ? "运行中　" + (sv[2] || a[7] || "")
-      : (sv[3] === "1" ? "已配置但未运行，请点「保存并应用」重试" : "未开启"));
-  } catch(e) { log("读取接口配置失败：" + e.message, "err"); }
-}
-
-function saveApiConfig(){
-  if (!hasNative("SaveApiConfig")) { log("当前运行方式不支持数据接口（请使用 EXE 版）。", "warn"); return; }
-  var url = apiTrim($("apiUrl").value);
-  var token = $("apiToken").value;
-  var to = parseInt(apiTrim($("apiTimeout").value), 10); if (isNaN(to) || to < 3) to = 8;
-  var push = $("apiPush").checked;
-  var local = $("apiLocal").checked;
-  var port = parseInt(apiTrim($("apiLocalPort").value), 10); if (isNaN(port) || port < 1024 || port > 65535) port = 18760;
-  var ltok = $("apiLocalToken").value;
-  var r = apiSplit(wsh.SaveApiConfig(url, token, to, push, local, port, ltok));
+function uploadNow(){
+  if (!hasNative("ApiSyncNow")) { log("当前运行方式不支持数据上传（请使用 EXE 版）。", "warn"); return; }
+  log("正在采集并刷新上传数据…", "hd");
+  var r = apiSplit(wsh.ApiSyncNow());
   log(r[1], r[0] === "OK" ? "ok" : "err");
-  $("apiToken").value = ""; $("apiLocalToken").value = "";
-  loadApiSettings();
+  loadUploadSettings();
 }
 
-function apiTestPush(){
-  if (!hasNative("ApiTest")) { log("当前运行方式不支持数据接口（请使用 EXE 版）。", "warn"); return; }
-  log("正在采集并测试接口连通性…", "hd");
-  var r = apiSplit(wsh.ApiTest(apiTrim($("apiUrl").value), $("apiToken").value));
+function lanAllowFirewall(){
+  if (!hasNative("LanAgentAllowFirewall")) { log("当前运行方式不支持防火墙放行（请使用 EXE 版）。", "warn"); return; }
+  var r = apiSplit(wsh.LanAgentAllowFirewall());
   log(r[1], r[0] === "OK" ? "ok" : "err");
-  loadApiSettings();
 }
 
-function apiPushNow(){
-  if (!hasNative("ApiPushNow")) { log("当前运行方式不支持数据接口（请使用 EXE 版）。", "warn"); return; }
-  log("正在采集并推送…", "hd");
-  var r = apiSplit(wsh.ApiPushNow());
-  log(r[1], r[0] === "OK" ? "ok" : "err");
-  loadApiSettings();
-}
-
-function apiFlush(){
-  if (!hasNative("ApiFlushOutbox")) { log("当前运行方式不支持待发队列（请使用 EXE 版）。", "warn"); return; }
-  var r = apiSplit(wsh.ApiFlushOutbox());
-  log(r[1], r[0] === "OK" ? "ok" : "err");
-  loadApiSettings();
-}
-
-function copyApiBase(){
-  var sv = ["0", "0", ""];
-  if (hasNative("ApiServerState")) sv = String(wsh.ApiServerState()).split("|");
-  var port = apiTrim($("apiLocalPort").value) || "18760";
-  var u = sv[2] || ("http://127.0.0.1:" + port + "/api/v1");
+function copyLanBase(){
+  if (!hasNative("GetLanAgentState")) return;
+  var s = String(wsh.GetLanAgentState()).split("|");
+  var u = s[4] || ("http://127.0.0.1:" + (s[1] || "18762"));
   if (hasNative("CopyText")) wsh.CopyText(u);
-  log("已复制接口基地址：" + u, "ok");
+  log("已复制局域网代理地址：" + u, "ok");
 }
 
-function openApiPage(){
-  var sv = ["0", "0", ""];
-  if (hasNative("ApiServerState")) sv = String(wsh.ApiServerState()).split("|");
-  if (sv[0] !== "1") { log("本地服务未运行，请先勾选「启用服务」并保存配置。", "warn"); return; }
-  if (hasNative("OpenUrl")) wsh.OpenUrl(sv[2] || "http://127.0.0.1:18760/api/v1");
-}
-
-function exportApiDoc(){
-  if (!hasNative("ExportApiDoc")) { log("当前运行方式不支持导出接口文档（请使用 EXE 版）。", "warn"); return; }
-  var r = apiSplit(wsh.ExportApiDoc());
-  log(r[1], r[0] === "OK" ? "ok" : "err");
-}
+function openConfigDir(){ try { if (hasNative("OpenConfigDir")) wsh.OpenConfigDir(); } catch(e){} }
 
 function setAutoStart(on){
   if (!hasNative("SetAutoStart")) { log("当前运行方式不支持开机自启（请使用 EXE 版）。", "warn"); return; }
   try {
     var ok = wsh.SetAutoStart(on);
     log(ok ? ("开机自启已" + (on ? "启用" : "关闭") + "。") : "设置开机自启失败，请检查系统策略。", ok ? "ok" : "err");
-    loadCollectSettings();
+    loadUploadSettings();
   } catch(e) { log("设置失败：" + e.message, "err"); }
 }
 
@@ -1006,7 +837,7 @@ function setTrayMode(on){
   try {
     wsh.SetTrayMode(on);
     log("关闭行为已改为：" + (on ? "最小化到托盘（后台继续运行）" : "直接退出程序"), "ok");
-    loadCollectSettings();
+    loadUploadSettings();
   } catch(e) { log("设置失败：" + e.message, "err"); }
 }
 

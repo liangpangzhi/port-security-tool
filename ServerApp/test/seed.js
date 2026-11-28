@@ -2,32 +2,114 @@
 'use strict';
 
 /*
- * 生成演示数据：向本地服务端推送 3 台主机的多份快照。
+ * 生成演示数据：直接写入服务端的 SQLite 库。
+ * 服务端已取消「客户端主动上传」通道，数据只来自扫描拉取，
+ * 因此演示数据改为直接落库（表结构与服务端一致）。
+ *
  * 用法：node test/seed.js
- * 环境变量：PST_SERVER（默认 http://127.0.0.1:8080）
- *           PST_INGEST_TOKEN（默认读 ../config.json）
+ * 环境变量：PST_DB（数据库文件路径，默认 data/pst.db）
+ *           PST_CONFIG（配置文件路径，默认 ../config.json）
  */
 
 const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
+const { DatabaseSync } = require('node:sqlite');
 
 const ROOT = path.join(__dirname, '..');
-let cfg = {};
-try { cfg = JSON.parse(fs.readFileSync(path.join(ROOT, 'config.json'), 'utf8')); } catch { }
+const CONFIG_PATH = process.env.PST_CONFIG || path.join(ROOT, 'config.json');
 
-const SERVER = (process.env.PST_SERVER || `http://127.0.0.1:${cfg.port || 8080}`).replace(/\/+$/, '');
-const TOKEN = process.env.PST_INGEST_TOKEN || cfg.ingestToken || '';
+let cfg = {};
+try { cfg = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8')); } catch { }
+
+const DB_FILE = process.env.PST_DB || cfg.dbFile || 'data/pst.db';
+const DB_PATH = path.isAbsolute(DB_FILE) ? DB_FILE : path.join(ROOT, DB_FILE);
 const EXAMPLE = path.join(ROOT, '..', 'API接口文档_v1.0', 'example_1.0.json');
 
-if (!TOKEN) {
-  console.error('缺少 ingestToken，请设置 PST_INGEST_TOKEN 或修改 config.json');
-  process.exit(1);
-}
 if (!fs.existsSync(EXAMPLE)) {
   console.error('找不到示例报文：' + EXAMPLE);
   process.exit(1);
 }
+
+fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
+const db = new DatabaseSync(DB_PATH);
+db.exec(`
+  PRAGMA journal_mode = WAL;
+  CREATE TABLE IF NOT EXISTS devices (
+    device_id       TEXT PRIMARY KEY,
+    computer_name   TEXT NOT NULL,
+    domain          TEXT,
+    current_user    TEXT,
+    serial_number   TEXT,
+    os_caption      TEXT,
+    os_version      TEXT,
+    cpu_model       TEXT,
+    memory_gb       REAL,
+    primary_ip      TEXT,
+    primary_mac     TEXT,
+    agent_version   TEXT,
+    first_seen      INTEGER NOT NULL,
+    last_seen       INTEGER NOT NULL,
+    last_report_id  TEXT,
+    report_count    INTEGER NOT NULL DEFAULT 0,
+    risk_score      INTEGER NOT NULL DEFAULT 0,
+    risk_level      TEXT NOT NULL DEFAULT 'low',
+    ports_total     INTEGER NOT NULL DEFAULT 0,
+    ports_blocked   INTEGER NOT NULL DEFAULT 0,
+    ports_exposed   INTEGER NOT NULL DEFAULT 0,
+    critical_count  INTEGER NOT NULL DEFAULT 0
+  );
+  CREATE TABLE IF NOT EXISTS reports (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    report_id       TEXT NOT NULL UNIQUE,
+    device_id       TEXT NOT NULL,
+    computer_name   TEXT,
+    collected_at    TEXT,
+    collected_ts    INTEGER NOT NULL,
+    received_at     INTEGER NOT NULL,
+    client_ip       TEXT,
+    risk_score      INTEGER NOT NULL DEFAULT 0,
+    risk_level      TEXT NOT NULL DEFAULT 'low',
+    ports_total     INTEGER NOT NULL DEFAULT 0,
+    ports_blocked   INTEGER NOT NULL DEFAULT 0,
+    ports_exposed   INTEGER NOT NULL DEFAULT 0,
+    critical_count  INTEGER NOT NULL DEFAULT 0,
+    payload         TEXT NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS idx_reports_device
+    ON reports(device_id, collected_ts DESC);
+  CREATE INDEX IF NOT EXISTS idx_reports_collected
+    ON reports(collected_ts DESC);
+  CREATE INDEX IF NOT EXISTS idx_devices_last_seen
+    ON devices(last_seen DESC);
+`);
+
+const insertReportStmt = db.prepare(`
+  INSERT OR IGNORE INTO reports
+    (report_id, device_id, computer_name, collected_at, collected_ts, received_at,
+     client_ip, risk_score, risk_level, ports_total, ports_blocked, ports_exposed,
+     critical_count, payload)
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+`);
+
+const insertDeviceStmt = db.prepare(`
+  INSERT INTO devices
+    (device_id, computer_name, domain, current_user, serial_number, os_caption, os_version,
+     cpu_model, memory_gb, primary_ip, primary_mac, agent_version, first_seen, last_seen,
+     last_report_id, report_count, risk_score, risk_level, ports_total, ports_blocked,
+     ports_exposed, critical_count)
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?)
+`);
+
+const bumpDeviceStmt = db.prepare('UPDATE devices SET report_count = report_count + 1 WHERE device_id = ?');
+const updateDeviceStmt = db.prepare(`
+  UPDATE devices SET
+    computer_name = ?, domain = ?, current_user = ?, serial_number = ?, os_caption = ?,
+    os_version = ?, cpu_model = ?, memory_gb = ?, primary_ip = ?, primary_mac = ?,
+    agent_version = ?, last_seen = ?, last_report_id = ?, risk_score = ?, risk_level = ?,
+    ports_total = ?, ports_blocked = ?, ports_exposed = ?, critical_count = ?
+  WHERE device_id = ?
+`);
 
 const base = JSON.parse(fs.readFileSync(EXAMPLE, 'utf8'));
 
@@ -134,27 +216,68 @@ const hosts = [
   },
 ];
 
-async function post(report) {
-  const res = await fetch(SERVER + '/api/v1/reports', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json; charset=utf-8',
-      'Authorization': 'Bearer ' + TOKEN,
-      'X-PST-Report-Id': report.reportId,
-      'X-PST-Computer': report.device.computerName,
-      'X-PST-Schema': 'port-security-tool.device-report/1.0',
-    },
-    body: JSON.stringify(report),
-  });
-  const text = await res.text();
-  console.log(`POST ${report.device.computerName} -> HTTP ${res.status} ${text}`);
-  return res.ok;
+function store(report) {
+  const device = report.device || {};
+  const risk = report.risk || {};
+  const ports = report.ports || {};
+  const network = device.network || {};
+  const addresses = Array.isArray(network.addresses) ? network.addresses : [];
+  const primary = addresses.find((a) => a && a.primary) || addresses[0] || {};
+
+  const collectedTs = Date.parse(report.collectedAt) || Date.now();
+  const now = Date.now();
+  const bodyText = JSON.stringify(report);
+
+  db.exec('BEGIN IMMEDIATE');
+  try {
+    const inserted = insertReportStmt.run(
+      report.reportId, device.deviceId, device.computerName, report.collectedAt, collectedTs, now,
+      primary.address || '', risk.score || 0, risk.level || 'low', ports.total || 0,
+      ports.blocked || 0, ports.exposed || 0, risk.criticalCount || 0, bodyText
+    );
+    if (inserted.changes === 0) {
+      db.exec('COMMIT');
+      console.log(`跳过（已存在）${device.computerName}`);
+      return false;
+    }
+
+    const existing = db.prepare('SELECT last_seen FROM devices WHERE device_id = ?').get(device.deviceId);
+    if (!existing) {
+      insertDeviceStmt.run(
+        device.deviceId, device.computerName, device.domain || '', device.currentUser || '',
+        device.serialNumber || '', device.osCaption || '', device.osVersion || '',
+        (device.cpu && device.cpu.model) || '', (device.memory && device.memory.totalGB) || 0,
+        primary.address || '', network.primaryMac || '', (report.agent && report.agent.version) || '',
+        collectedTs, collectedTs, report.reportId, risk.score || 0, risk.level || 'low',
+        ports.total || 0, ports.blocked || 0, ports.exposed || 0, risk.criticalCount || 0
+      );
+    } else {
+      bumpDeviceStmt.run(device.deviceId);
+      if (collectedTs >= existing.last_seen) {
+        updateDeviceStmt.run(
+          device.computerName, device.domain || '', device.currentUser || '', device.serialNumber || '',
+          device.osCaption || '', device.osVersion || '', (device.cpu && device.cpu.model) || '',
+          (device.memory && device.memory.totalGB) || 0, primary.address || '',
+          network.primaryMac || '', (report.agent && report.agent.version) || '',
+          collectedTs, report.reportId, risk.score || 0, risk.level || 'low',
+          ports.total || 0, ports.blocked || 0, ports.exposed || 0, risk.criticalCount || 0,
+          device.deviceId
+        );
+      }
+    }
+    db.exec('COMMIT');
+  } catch (err) {
+    try { db.exec('ROLLBACK'); } catch { }
+    console.error('写入失败：' + err.message);
+    return false;
+  }
+  console.log(`已写入 ${device.computerName}（${primary.address || '-'}）风险 ${risk.score}/${risk.level}`);
+  return true;
 }
 
-async function main() {
+function main() {
   let ok = 0;
   for (const h of hosts) {
-    // 每台主机先推一份较早的快照，再推当前快照，形成历史
     if (h.level !== 'low') {
       const oldExposed = h.exposedPorts.slice(0, Math.max(1, h.exposedPorts.length - 1));
       const old = makeReport({
@@ -162,19 +285,16 @@ async function main() {
         minutesAgo: h.minutesAgo + 55,
         score: Math.max(0, h.score - 21),
         exposedPorts: oldExposed,
-        // 早期快照只暴露普通端口，避免出现“无严重端口但等级仍是高危”的矛盾
         criticalPorts: [],
         level: h.level === 'high' ? 'medium' : 'low',
       });
-      if (await post(old)) ok++;
+      if (store(old)) ok++;
     }
-    const cur = makeReport(h);
-    if (await post(cur)) ok++;
+    if (store(makeReport(h))) ok++;
   }
-  console.log(`\n完成：成功 ${ok} 份。打开 ${SERVER}/ 查看大屏。`);
+  console.log(`\n完成：写入 ${ok} 份快照。数据库：${DB_PATH}`);
+  console.log('启动服务端后打开大屏即可看到效果。');
+  try { db.close(); } catch { }
 }
 
-main().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
+main();

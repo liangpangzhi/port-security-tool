@@ -53,32 +53,25 @@ var __host = {
   GetSettings: function(){ return __ext().GetSettings(); },
   SetAutoStart: function(on){ return __ext().SetAutoStart(!!on); },
   SetTrayMode: function(on){ return __ext().SetTrayMode(!!on); },
-  SaveCollectConfig: function(ip, share, user, pass, iv, auto){
-    return __ext().SaveCollectConfig(ip, share, user, pass, iv, !!auto);
-  },
-  CollectPreview: function(){ return __ext().CollectPreview(); },
-  CollectLocal: function(){ return __ext().CollectLocal(); },
-  CollectAndSend: function(){ return __ext().CollectAndSend(); },
-  OpenLastReport: function(){ return __ext().OpenLastReport(); },
-  OpenTargetFolder: function(){ return __ext().OpenTargetFolder(); },
   OpenConfigDir: function(){ return __ext().OpenConfigDir(); },
   // ---- 数据接口 ----
-  GetApiSettings: function(){ return __ext().GetApiSettings(); },
-  SaveApiConfig: function(url, token, to, push, local, port, ltoken){
-    return __ext().SaveApiConfig(url === undefined ? "" : url,
-                                 token === undefined ? "" : token,
-                                 to === undefined ? 8 : to,
-                                 !!push, !!local,
-                                 port === undefined ? 18760 : port,
-                                 ltoken === undefined ? "" : ltoken);
+  ApiSyncNow: function(){ return __ext().ApiSyncNow(); },
+  // ---- 局域网发现 / 服务端拉取 ----
+  GetLanAgentState: function(){ return __ext().GetLanAgentState(); },
+  SaveLanAgentConfig: function(on, port, token){
+    return __ext().SaveLanAgentConfig(!!on, port === undefined ? 18762 : port, token === undefined ? "" : token);
   },
-  ApiTest: function(url, token){ return __ext().ApiTest(url || "", token || ""); },
-  ApiPushNow: function(){ return __ext().ApiPushNow(); },
-  ApiFlushOutbox: function(){ return __ext().ApiFlushOutbox(); },
-  ApiServerState: function(){ return __ext().ApiServerState(); },
-  ExportApiDoc: function(){ return __ext().ExportApiDoc(); },
+  LanAgentAllowFirewall: function(){ return __ext().LanAgentAllowFirewall(); },
+  // ---- 数据上传（自动上传服务端 / 局域网代理）----
+  GetUploadSettings: function(){ return __ext().GetUploadSettings(); },
+  SaveUploadConfig: function(auto, interval, lan, port, token){
+    return __ext().SaveUploadConfig(!!auto,
+                                    interval === undefined ? 15 : interval,
+                                    !!lan,
+                                    port === undefined ? 18762 : port,
+                                    token === undefined ? "" : token);
+  },
   CopyText: function(t){ return __ext().CopyText(t); },
-  GetClipboardText: function(){ return __ext().GetClipboardText(); },
   OpenUrl: function(u){ return __ext().OpenUrl(u); },
   // ---- 远程桌面（SubnetDesk）----
   OpenSubnetDesk: function(target){ return __ext().OpenSubnetDesk(target || ""); },
@@ -130,5 +123,6 @@ if (reElevate.test(html)) {
   console.warn('WARN: elevate block not matched');
 }
 
-fs.writeFileSync(dst, '\uFEFF' + html, 'utf8');
+// 统一输出 CRLF（与仓库 .gitattributes 的 eol=crlf 约定一致，避免大范围行尾差异）
+fs.writeFileSync(dst, '\uFEFF' + html.replace(/\r?\n/g, '\r\n'), 'utf8');
 console.log('written', dst, fs.statSync(dst).size, 'bytes');

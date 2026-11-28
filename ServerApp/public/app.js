@@ -13,6 +13,8 @@ const state = {
   risk: 'all',
   status: 'all',
   settings: null,
+  agents: [],
+  pollStatus: null,
   timer: null,
 };
 
@@ -124,9 +126,17 @@ function bindEvents() {
   $('loginBtn').addEventListener('click', tryLogin);
   $('loginToken').addEventListener('keydown', (e) => { if (e.key === 'Enter') tryLogin(); });
   $('settingsBtn').addEventListener('click', () => { location.hash = '#/settings'; });
+  $('agentsBtn').addEventListener('click', () => { location.hash = '#/agents'; });
+  $('homeBtn').addEventListener('click', () => { location.hash = '#/'; });
   $('saveSettingsBtn').addEventListener('click', saveSettings);
-  $('copyIngestUrl').addEventListener('click', () => {
-    copyText($('setIngestUrl').textContent, '上报地址已复制');
+  $('scanBtn').addEventListener('click', () => runAgentAction('scan'));
+  $('pollBtn').addEventListener('click', () => runAgentAction('poll'));
+  $('scanPollBtn').addEventListener('click', () => runAgentAction('scan-and-poll'));
+  $('saveAgentCfgBtn').addEventListener('click', saveAgentSettings);
+  $('agentBody').addEventListener('click', (e) => {
+    const btn = e.target.closest('button[data-poll-ip]');
+    if (!btn) return;
+    pollSingleAgent(btn.dataset.pollIp, btn.dataset.pollPort || '18762');
   });
   $('copyDashboardUrl').addEventListener('click', () => {
     copyText($('setDashboardUrl').textContent, '大屏地址已复制');
@@ -161,6 +171,7 @@ async function init() {
   bindEvents();
   tickClock();
   setInterval(tickClock, 1000);
+  updateHomeButton(location.hash || '#/');
   try {
     state.cfg = await fetch('/api/config', { cache: 'no-store' }).then((r) => r.json());
     if (state.cfg.authRequired && !state.token) { showLogin(''); return; }
@@ -175,6 +186,10 @@ async function refresh(silent) {
   const hash = location.hash || '#/';
   if (hash.startsWith('#/settings')) {
     if (!silent) await loadSettings();
+    return;
+  }
+  if (hash.startsWith('#/agents')) {
+    await loadAgents(silent);
     return;
   }
   if (hash.startsWith('#/host/')) {
@@ -215,17 +230,172 @@ async function loadHost(id, silent) {
 function showSummaryView() {
   $('summaryView').hidden = false;
   $('hostView').hidden = true;
+  $('agentsView').hidden = true;
   $('settingsView').hidden = true;
 }
 function showHostView() {
   $('summaryView').hidden = true;
   $('hostView').hidden = false;
+  $('agentsView').hidden = true;
   $('settingsView').hidden = true;
 }
 function showSettingsView() {
   $('summaryView').hidden = true;
   $('hostView').hidden = true;
+  $('agentsView').hidden = true;
   $('settingsView').hidden = false;
+}
+function showAgentsView() {
+  $('summaryView').hidden = true;
+  $('hostView').hidden = true;
+  $('settingsView').hidden = true;
+  $('agentsView').hidden = false;
+}
+
+async function loadAgents(silent) {
+  try {
+    const [data, status, settings] = await Promise.all([
+      api('/api/agents'),
+      api('/api/poll/status'),
+      api('/api/settings'),
+    ]);
+    state.agents = data.agents || [];
+    state.pollStatus = status;
+    state.settings = settings;
+    renderAgents();
+    showAgentsView();
+  } catch (e) {
+    if (!silent) {
+      $('agentMsg').className = 'form-msg err';
+      $('agentMsg').textContent = '加载客户端列表失败：' + e.message;
+    }
+    showAgentsView();
+  }
+}
+
+function renderAgents() {
+  const agents = state.agents;
+  const alive = agents.filter((a) => a.alive).length;
+  const ok = agents.filter((a) => a.lastPollOk === true).length;
+  const bad = agents.filter((a) => a.lastPollOk === false).length;
+  const st = state.pollStatus || {};
+  const cfg = state.settings || {};
+  $('agentCount').textContent = `共 ${agents.length} 台`;
+  $('agentPortHint').textContent = '发现端口 UDP ' + (st.discoveryPort || '—');
+  $('agentScheduleTag').textContent = st.enabled
+    ? `自动拉取 · 每 ${st.intervalMinutes} 分钟`
+    : '自动拉取未启用';
+  $('agentLastPoll').textContent = st.lastRunAt ? fmtFull(st.lastRunAt) : '—';
+
+  // 模块内置配置项：定时拉取、间隔、发现端口、客户端拉取令牌
+  $('setPollEnabled').checked = !!cfg.pollEnabled;
+  $('setPollInterval').value = cfg.pollIntervalMinutes || '';
+  $('setDiscoveryPort').value = cfg.discoveryPort || '';
+  $('setAgentToken').value = '';
+  $('clearAgentToken').checked = false;
+  $('agentTokenState').textContent = cfg.agentTokenSet
+    ? '当前已配置客户端拉取令牌（不显示原文），留空即保持不变；需与客户端「访问令牌」一致。'
+    : '当前未配置客户端拉取令牌，客户端可不带令牌被拉取；建议设置。';
+
+  $('agentKpis').innerHTML = [
+    ['已发现客户端', agents.length, '局域网代理在线', ''],
+    ['当前在线', alive, '10 分钟内被扫描到', 'ok'],
+    ['拉取成功', ok, '最近一次拉取', 'cyan'],
+    ['拉取失败', bad, '请检查令牌 / 防火墙', bad ? 'hot' : ''],
+    ['发现端口', st.discoveryPort || '—', 'UDP 广播', ''],
+    ['自动拉取', st.enabled ? '开启' : '关闭', st.enabled ? `${st.intervalMinutes} 分钟 / 次` : '可在本页开启', st.enabled ? 'ok' : 'warn'],
+  ].map(([label, value, sub, cls]) => `
+    <div class="kpi ${cls}">
+      <div class="kpi-label">${esc(label)}</div>
+      <div class="kpi-value">${esc(value)}</div>
+      <div class="kpi-sub">${esc(sub)}</div>
+    </div>`).join('');
+
+  if (!agents.length) {
+    $('agentBody').innerHTML = '<tr><td colspan="8"><div class="empty">尚未发现客户端。请确认客户端已开启「局域网代理」并放行防火墙，然后点击「一键扫描」。</div></td></tr>';
+    return;
+  }
+  $('agentBody').innerHTML = agents.map((a) => `
+    <tr>
+      <td><div class="host-cell"><div class="mini-avatar">${hostInitial(a.computerName)}</div><div><b>${esc(a.computerName)}</b><small>${esc(a.currentUser || a.agentVersion || '')}</small></div></div></td>
+      <td class="mono">${esc(a.ip)}</td>
+      <td class="mono">${esc(a.port)}</td>
+      <td class="mono" title="${esc(a.deviceId)}">${esc(String(a.deviceId || '—').slice(0, 16))}</td>
+      <td>${a.tokenRequired ? '<span class="tag amber">需要</span>' : '<span class="tag">无需</span>'}</td>
+      <td title="${esc(fmtFull(a.lastSeen))}">${esc(relTime(a.lastSeen))}</td>
+      <td>${a.lastPollAt == null ? '<span class="tag">未拉取</span>'
+        : (a.lastPollOk ? '<span class="tag green">成功</span>' : '<span class="tag red">失败</span>')
+          + '<small style="display:block;color:#4d6d88;margin-top:3px" title="' + esc(a.lastPollMsg) + '">' + esc(a.lastPollMsg || '') + '</small>'}</td>
+      <td class="num"><button class="small-btn" data-poll-ip="${esc(a.ip)}" data-poll-port="${esc(a.port)}">拉取</button></td>
+    </tr>`).join('');
+}
+
+async function saveAgentSettings() {
+  const btn = $('saveAgentCfgBtn');
+  const msg = $('agentMsg');
+  const payload = {
+  };
+  Object.keys(payload).forEach((k) => { if (payload[k] === undefined) delete payload[k]; });
+
+  btn.disabled = true;
+  msg.className = 'form-msg';
+  msg.textContent = '正在保存…';
+  try {
+    await api('/api/settings', { method: 'POST', body: JSON.stringify(payload) });
+    await loadAgents(true);
+    msg.className = 'form-msg';
+    msg.textContent = '发现与拉取配置已保存到 config.json。';
+  } catch (e) {
+    msg.className = 'form-msg err';
+    msg.textContent = '保存失败：' + e.message;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function runAgentAction(action) {
+  const msg = $('agentMsg');
+  msg.className = 'form-msg';
+  msg.textContent = action === 'scan' ? '正在广播扫描…' : '正在拉取客户端数据…';
+  const cidr = $('scanCidr').value.trim();
+  const body = action === 'poll' ? null : { cidrs: cidr ? cidr.split(/[,，\s]+/).filter(Boolean) : [] };
+  try {
+    const result = await api('/api/agents/' + action, {
+      method: 'POST',
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    state.agents = result.agents || state.agents;
+    state.pollStatus = await api('/api/poll/status');
+    renderAgents();
+    let text = action === 'scan'
+      ? `扫描完成，发现 ${result.count || 0} 台客户端。`
+      : `拉取完成：共 ${result.total || 0} 台，成功 ${result.success || 0} 台，失败 ${result.failed || 0} 台。`;
+    if (result.discovered != null) text += ` 新发现 ${result.discovered} 台。`;
+    msg.className = 'form-msg';
+    msg.textContent = text;
+  } catch (e) {
+    msg.className = 'form-msg err';
+    msg.textContent = '操作失败：' + e.message;
+  }
+}
+
+async function pollSingleAgent(ip, port) {
+  const msg = $('agentMsg');
+  msg.className = 'form-msg';
+  msg.textContent = '正在拉取 ' + ip + ' …';
+  try {
+    const result = await api('/api/agents/poll', {
+      method: 'POST',
+      body: JSON.stringify({ only: ip, port: Number(port) }),
+    });
+    state.agents = result.agents || state.agents;
+    renderAgents();
+    msg.className = 'form-msg';
+    msg.textContent = `拉取完成：成功 ${result.success || 0} 台，失败 ${result.failed || 0} 台。`;
+  } catch (e) {
+    msg.className = 'form-msg err';
+    msg.textContent = '拉取失败：' + e.message;
+  }
 }
 
 async function loadSettings(clearNotice = true) {
@@ -250,20 +420,13 @@ function renderSettings(s) {
   $('setHost').value = s.host || '';
   $('setPort').value = s.port || '';
   $('setPublicBaseUrl').value = s.publicBaseUrl || '';
-  $('setIngestPath').value = s.ingestPath || '';
   $('setStaleMinutes').value = s.staleMinutes || '';
-  $('setIngestUrl').textContent = s.ingestUrl || '—';
   $('setDashboardUrl').textContent = s.dashboardUrl || '—';
   $('settingsConfigShort').textContent = s.configPath || '—';
-  $('ingestTokenState').textContent = s.ingestTokenSet
-    ? '当前已配置（出于安全不显示原文），留空即保持不变。'
-    : '当前未配置，客户端上报会被拒绝。';
   $('dashboardTokenState').textContent = s.dashboardTokenSet
     ? '当前已启用（出于安全不显示原文），留空即保持不变。'
     : '当前未启用，局域网内可直接访问大屏。';
-  $('setIngestToken').value = '';
   $('setDashboardToken').value = '';
-  $('clearIngestToken').checked = false;
   $('clearDashboardToken').checked = false;
 
   const rows = [
@@ -271,7 +434,6 @@ function renderSettings(s) {
     ['数据库文件', s.dbFile || '—', true],
     ['监听地址', (s.host || '') + ':' + (s.port || ''), true],
     ['大屏令牌', s.dashboardTokenSet ? '已启用' : '未启用'],
-    ['上报令牌', s.ingestTokenSet ? '已配置' : '未配置'],
     ['离线阈值', (s.staleMinutes || '') + ' 分钟'],
   ];
   $('settingsInfo').innerHTML = rows.map(([label, value, mono]) => `
@@ -291,13 +453,11 @@ async function saveSettings() {
     host: $('setHost').value.trim(),
     port: Number($('setPort').value),
     publicBaseUrl: $('setPublicBaseUrl').value.trim(),
-    ingestPath: $('setIngestPath').value.trim(),
     staleMinutes: Number($('setStaleMinutes').value),
-    ingestToken: $('setIngestToken').value.trim(),
-    clearIngestToken: $('clearIngestToken').checked,
     dashboardToken,
     clearDashboardToken: clearDashboard,
   };
+  Object.keys(payload).forEach((k) => { if (payload[k] === undefined) delete payload[k]; });
 
   try {
     const result = await api('/api/settings', {
@@ -369,7 +529,7 @@ function renderSummary() {
     ['高危主机', s.risk.high, `中危 ${s.risk.medium} · 低危 ${s.risk.low}`, 'hot'],
     ['暴露端口', t.exposedPorts, '当前所有主机暴露总数', 'warn'],
     ['严重暴露', t.criticalExposed, '高危端口暴露实例', 'hot'],
-    ['平均风险分', t.avgScore, `累计上报 ${t.reports} 次`, 'cyan'],
+    ['平均风险分', t.avgScore, `累计采集 ${t.reports} 次`, 'cyan'],
   ];
   $('kpis').innerHTML = kpis.map(([label, value, sub, cls]) => `
     <div class="kpi ${cls}">
@@ -449,7 +609,7 @@ function renderTrend(trend) {
       ${pts.filter((_, i) => i === pts.length - 1).map(([x, y]) => `<circle cx="${x}" cy="${y}" r="3" fill="#22d3ee"/>`).join('')}
       ${labels}
     </svg>
-    <div class="trend-legend"><span><i style="background:#22d3ee"></i>上报次数</span><span>峰值 ${max}/小时</span></div>`;
+    <div class="trend-legend"><span><i style="background:#22d3ee"></i>拉取次数</span><span>峰值 ${max}/小时</span></div>`;
 }
 
 function renderTopPorts(ports) {
@@ -468,7 +628,7 @@ function renderTopPorts(ports) {
 
 function renderRecent(rows) {
   if (!rows.length) {
-    $('recent').innerHTML = '<div class="empty">暂无上报数据</div>';
+    $('recent').innerHTML = '<div class="empty">暂无采集数据</div>';
     return;
   }
   $('recent').innerHTML = rows.map((r) => `
@@ -531,7 +691,7 @@ function renderHost(data) {
     <span class="mono">${esc(d.primaryIp || '—')}</span>
     <span>${esc(d.currentUser || '—')}${d.domain ? '@' + esc(d.domain) : ''}</span>
     <span>${esc(d.osCaption || '—')}</span>
-    <span>最后上报 ${esc(relTime(d.lastSeen))}</span>`;
+    <span>最后采集 ${esc(relTime(d.lastSeen))}</span>`;
   $('hostBadges').innerHTML = `
     <div class="big-risk ${d.riskLevel || 'low'}">${esc(d.riskScore || 0)}<small style="font-size:11px;color:#5f88a8"> 分</small></div>
     ${riskBadge(d.riskLevel, null)}
@@ -541,7 +701,7 @@ function renderHost(data) {
     ['暴露端口', d.portsExposed, '当前未封堵', d.portsExposed > 0 ? 'hot' : 'ok'],
     ['严重暴露', d.criticalCount, '高危端口实例', d.criticalCount > 0 ? 'hot' : 'ok'],
     ['已封堵', d.portsBlocked, `策略总数 ${d.portsTotal}`, 'ok'],
-    ['上报次数', d.reportCount, '历史快照数量', 'cyan'],
+    ['采集次数', d.reportCount, '历史快照数量', 'cyan'],
     ['内存', d.memoryGb ? Number(d.memoryGb).toFixed(0) : '—', 'GB', ''],
     ['风险分', d.riskScore, riskLabel(d.riskLevel), d.riskLevel === 'high' ? 'hot' : d.riskLevel === 'medium' ? 'warn' : 'ok'],
   ];
@@ -596,8 +756,8 @@ function renderInfo(d, device, report) {
     ['BIOS', [bios.version, bios.releaseDate].filter(Boolean).join(' / ') || '—'],
     ['主 MAC', d.primaryMac || '—', true],
     ['客户端版本', (report.agent && report.agent.version) || d.agentVersion || '—'],
-    ['首次上报', fmtFull(d.firstSeen)],
-    ['最后上报', fmtFull(d.lastSeen)],
+    ['首次采集', fmtFull(d.firstSeen)],
+    ['最后采集', fmtFull(d.lastSeen)],
     ['采集时间', report.collectedAtText || report.collectedAt || '—'],
   ];
   $('hostInfo').innerHTML = rows.map(([label, value, mono]) => `
@@ -651,10 +811,23 @@ function renderHistory(history) {
     </tr>`).join('');
 }
 
+function updateHomeButton(hash) {
+  const btn = $('homeBtn');
+  if (!btn) return;
+  const h = hash || '#/';
+  btn.disabled = (h === '#/' || h === '#');
+  btn.title = btn.disabled ? '已在首页' : '返回首页';
+}
+
 function route() {
   const hash = location.hash || '#/';
+  updateHomeButton(hash);
   if (hash.startsWith('#/settings')) {
     loadSettings();
+    return;
+  }
+  if (hash.startsWith('#/agents')) {
+    loadAgents();
     return;
   }
   if (hash.startsWith('#/host/')) {

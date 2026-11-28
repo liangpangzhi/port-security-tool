@@ -21,7 +21,6 @@
     <Compile Include="..\MainForm.cs" />
     <Compile Include="..\AppConfig.cs" />
     <Compile Include="..\SysInfo.cs" />
-    <Compile Include="..\XlsxWriter.cs" />
     <Compile Include="..\Collector.cs" />
     <Compile Include="..\WmiInfo.cs" />
     <Compile Include="..\SystemIntegration.cs" />
@@ -31,10 +30,8 @@
     <Compile Include="..\RdpClient.cs" />
     <Compile Include="..\ApiJson.cs" />
     <Compile Include="..\ApiReport.cs" />
-    <Compile Include="..\ApiClient.cs" />
-    <Compile Include="..\ApiServer.cs" />
-    <Compile Include="..\ApiDoc.cs" />
-    <EmbeddedResource Include="..\ApiDoc.md" LogicalName="PortSecurityTool.ApiDoc.md" />
+    <Compile Include="..\LanAgent.cs" />
+    <Compile Include="..\EmbeddedRemote.cs" />
     <EmbeddedResource Include="..\ui.html" LogicalName="PortSecurityTool.ui.html" />
     <EmbeddedResource Include="..\app.ico" LogicalName="PortSecurityTool.app.ico" />
   </ItemGroup>

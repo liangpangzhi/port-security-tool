@@ -19,8 +19,7 @@
 | IP 白名单 | SMB / FTP / 远程桌面等按来源 IP 放行，支持 CIDR |
 | 端口转发 | SMB 端口中转（服务端/客户端）、规则清理、SMB over QUIC 备用端口检测 |
 | 远程桌面 | 已切换为内置 **SubnetDesk 客户端**：设备发现、画面控制、文件传输等由 SubnetDesk 提供；主程序单 exe 内嵌，首次点击自动解压启动；关闭远程桌面/PST 退出时会一并结束 SubnetDesk |
-| 数据采集 | 硬件、计算机名、端口封堵情况采集为 xlsx，推送至指定共享目录；定时或手动 |
-| 数据接口 | 标准 JSON 报文 HTTP 推送、本地查询服务、离线补发队列，便于二次开发服务端做汇总分析 |
+| 数据上传 | **数据自动上传服务端**：按间隔自动采集刷新，供服务端在局域网扫描后拉取；配套「局域网发现」代理（UDP 广播身份 + TCP 只读拉取接口） |
 | 关于 | 版本、版权、运行环境、部署形态 |
 
 ## 二、技术形态
@@ -39,25 +38,26 @@
 │  ├─ 网络信息采集和端口管理工具_v1.0_SubnetDesk.exe   成品（自包含单文件，管理员运行）
 │  └─ 网络信息采集和端口管理工具_v1.0_GUI.hta
 ├─ ServerApp/                               服务端 + 数据大屏（Node 22）
-│  ├─ server.js                             HTTP 接收、SQLite 落库、汇总接口
+│  ├─ server.js                             扫描发现 / 主动拉取 / SQLite 落库 / 汇总接口
 │  ├─ public/                               数据大屏前端（HTML/CSS/JS）
-│  ├─ test/seed.js                          演示数据
-│  └─ config.json                           端口 / 上报令牌 / 大屏令牌
+│  ├─ test/seed.js                          演示数据（直接写入 SQLite）
+│  └─ config.json                           端口 / 发现端口 / 拉取令牌 / 大屏令牌
 ├─ API接口文档_v1.0/                        数据接口说明 / JSON Schema / 脱敏报文示例
 └─ NativeApp/                               C# 宿主与原生能力
-   ├─ Program.cs / MainForm.cs              入口、窗体、托盘、单实例、定时采集
+   ├─ Program.cs / MainForm.cs              入口、窗体、托盘、单实例、自动上传定时器
    ├─ Bridge.cs                             COM 桥接（界面 → 原生）
    ├─ NativeApi.cs                          注册表 / 防火墙 / 进程直读
    ├─ SystemIntegration.cs                  自启、窗口唤起
-   ├─ Collector.cs / XlsxWriter.cs / WmiInfo.cs / SysInfo.cs   采集与表格生成
-   ├─ ApiJson.cs / ApiReport.cs / ApiClient.cs / ApiServer.cs / ApiDoc.cs   数据接口
+   ├─ Collector.cs / WmiInfo.cs / SysInfo.cs             本机采集
+   ├─ ApiJson.cs / ApiReport.cs                            采集报文契约（JSON）
+   ├─ LanAgent.cs                                          局域网发现(UDP) + 拉取接口(TCP)
    ├─ EmbeddedRemote.cs                                       内置 SubnetDesk 远程桌面（解压/启动）
    ├─ NetDiscovery.cs / RdpAgent.cs / RdpClient.cs              旧远程桌面实现（保留，不再由界面启用）
    ├─ subnetdesk-remote.zip                                   内嵌的 SubnetDesk 便携包
    ├─ build_html.js                         HTA → ui.html，注入兼容层
    ├─ app.manifest / app.ico                管理员清单与图标
    ├─ probe/                                界面自检探针（在真实 WebBrowser 宿主里执行 JS）
-   └─ apiprobe/                             接口与功能自检程序
+   └─ apiprobe/                             功能自检程序（契约生成 / 局域网代理 / 远程桌面）
 ```
 
 ## 四、运行环境
@@ -91,16 +91,20 @@ cd NativeApp/apiprobe && dotnet build -c Release && ./bin/Release/net10.0-window
 
 ## 六、数据接口
 
-`API接口文档_v1.0/` 内含字段说明、JSON Schema 与脱敏示例报文，可据此对接自建服务端：
+`API接口文档_v1.0/` 内含字段说明、JSON Schema 与脱敏示例报文，可据此对接自建服务端。
 
-- **HTTP 推送**：`POST` JSON 报文，带 `Authorization: Bearer`、`X-PST-Report-Id`（幂等键）；失败落盘待发队列，恢复后自动补发。界面中的接口地址支持 `Ctrl+V`、右键粘贴和“粘贴地址”按钮。
-- **本地查询服务**：默认 `127.0.0.1:18760`，仅监听回环，可配令牌；提供设备信息、端口状态、Schema、xlsx 报表下载。
+当前为**单向拉取**模式：客户端不再主动推送，数据由服务端在局域网内扫描发现客户端后主动取回。
+
+- **数据自动上传服务端**：「数据上传」页开启自动上传并设置间隔（1 分钟起），到点自动重新采集并刷新上传缓存，服务端任何时刻拉取到的都是最新快照；最小化到托盘仍继续执行。
+- **局域网发现代理**：默认开启，监听 UDP/TCP `18762`（可改）——UDP 响应 `PST-DISCOVER-V1` 广播/单播探测，TCP 提供只读接口 `/pst/v1/ping`、`/pst/v1/health`、`/pst/v1/device`。客户端启动时自动添加 UDP/TCP 入站防火墙放行规则，也可用界面「放行防火墙」手动添加。
+- **访问令牌**：客户端「访问令牌」与服务端「客户端拉取令牌」填同一个值即可；客户端不设令牌时服务端可免令牌拉取。
+- **已停用**：HTTP 推送（服务端旧地址返回 410）、本地查询服务 `127.0.0.1:18760`、电子表格/共享目录上报，客户端界面已移除对应入口。
 - **远程桌面**：旧版 `TCP 18761` 代理已停用；远程桌面统一由内置 SubnetDesk 客户端提供，不再由 PST 自身监听或放行 3389。
 
 ### 服务端与数据大屏（ServerApp）
 
-`ServerApp/` 是配套的零依赖 Node.js 服务端，接收客户端自动上报并落库 SQLite，
-提供数据大屏：首页汇总、风险分布、24 小时趋势、暴露端口 TOP、主机清单和单机详情。
+`ServerApp/` 是配套的零依赖 Node.js 服务端，扫描发现局域网客户端并定时拉取数据落库 SQLite，
+提供数据大屏：首页汇总、风险分布、24 小时趋势、暴露端口 TOP、主机清单和单机详情，顶栏带「返回首页」按钮。
 
 内网服务器部署可直接用单 exe（无需 Node）：
 
@@ -108,8 +112,8 @@ cd NativeApp/apiprobe && dotnet build -c Release && ./bin/Release/net10.0-window
 ServerApp\dist\PST-SecurityConsole.exe
 ```
 
-首次运行在 exe 同级生成 `config.json` 和 `data\pst.db`。令牌、端口、上报路径、
-对外访问地址等都可以直接在大屏「系统设置」页修改并保存，不用手动编辑文件。
+首次运行在 exe 同级生成 `config.json` 和 `data\pst.db`。监听地址、大屏令牌、离线阈值在「系统设置」页修改；
+发现端口、拉取令牌、定时拉取等在「客户端发现与拉取」模块内修改保存，不用手动编辑文件。
 开发调试也可用源码运行：
 
 ```bash
@@ -119,8 +123,9 @@ node --no-warnings server.js     # 或双击 start.bat
 
 - 大屏：`http://<服务器IP>:8080/`
 - 系统设置：`http://<服务器IP>:8080/#/settings`
-- 上报接口：`POST http://<服务器IP>:8080/api/v1/reports`（可在设置页改路径）
-- 客户端「数据接口」填设置页显示的「当前上报地址」和 `ingestToken`，测试推送返回 2xx 即接通
+- 客户端发现：`http://<服务器IP>:8080/#/agents` —— 一键扫描在线客户端、立即拉取、查看发现列表；**发现端口 / 拉取令牌 / 定时拉取等设置都在该模块内**
+- 扫描采用三路并行：UDP 广播 + 网段单播 UDP 探测 + TCP `18762` 端口探测，任一路命中即发现；跨网段可在扫描框手工填 `192.168.1.0/24`
+- 客户端侧：开启「数据上传 → 局域网发现 · 供服务端扫描」，确认端口与服务端一致，令牌一致后点「保存并应用」
 - 演示数据：`node test/seed.js`（或 `seed.bat`）
 - 详细配置、接口和安全建议见 `ServerApp/README.md`
 
@@ -134,5 +139,6 @@ node --no-warnings server.js     # 或双击 start.bat
 ## 八、版本
 
 - **v1.0** —— 首个整合版：信息采集、端口管控、局域网远程桌面、数据接口。
+- **v1.5** —— 局域网发现 + 单向拉取：服务端一键扫描在线客户端并定时拉取入库；客户端「数据上传」页精简为自动上传与局域网代理两张卡片；服务端取消客户端主动上传通道，大屏增加「返回首页」按钮。
 
 版权：成都铁路局集团公司党校（职工培训基地）设备信息科

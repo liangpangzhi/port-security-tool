@@ -10,6 +10,9 @@
  */
 
 const http = require('node:http');
+const dgram = require('node:dgram');
+const net = require('node:net');
+const os = require('node:os');
 const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
@@ -24,18 +27,20 @@ const DEFAULT_CONFIG = {
   port: 8080,
   host: '0.0.0.0',
   publicBaseUrl: '',
-  ingestPath: '/api/v1/reports',
-  ingestToken: 'change-me-ingest-token',
   dashboardToken: '',
   dbFile: 'data/pst.db',
   staleMinutes: 10,
+  discoveryPort: 18762,
+  agentToken: '',
+  pollEnabled: false,
+  pollIntervalMinutes: 15,
 };
 
 // 单 exe 首次运行：在 exe 同级生成可编辑的 config.json
 if (!fs.existsSync(CONFIG_PATH)) {
   try {
     fs.writeFileSync(CONFIG_PATH, JSON.stringify(DEFAULT_CONFIG, null, 2) + '\n', 'utf8');
-    console.log('[config] 已生成 ' + CONFIG_PATH + '，请修改 ingestToken 后重新启动');
+    console.log('[config] 已生成 ' + CONFIG_PATH + '，请在「系统设置」里配置拉取令牌后重启');
   } catch (err) {
     console.error('[config] 无法生成配置文件：' + err.message);
   }
@@ -54,13 +59,19 @@ const config = {
   port: Number(process.env.PST_PORT || fileConfig.port || 8080),
   host: process.env.PST_HOST || fileConfig.host || '0.0.0.0',
   publicBaseUrl: String(process.env.PST_PUBLIC_URL ?? fileConfig.publicBaseUrl ?? '').replace(/\/+$/, ''),
-  ingestPath: String(process.env.PST_INGEST_PATH ?? fileConfig.ingestPath ?? '/api/v1/reports'),
-  ingestToken: process.env.PST_INGEST_TOKEN ?? fileConfig.ingestToken ?? '',
   dashboardToken: process.env.PST_DASH_TOKEN ?? fileConfig.dashboardToken ?? '',
   dbFile: process.env.PST_DB || fileConfig.dbFile || 'data/pst.db',
   staleMinutes: Math.max(2, Number(process.env.PST_STALE_MINUTES || fileConfig.staleMinutes || 10)),
+  discoveryPort: Number(process.env.PST_DISCOVERY_PORT || fileConfig.discoveryPort || 18762),
+  agentToken: process.env.PST_AGENT_TOKEN ?? fileConfig.agentToken ?? '',
+  pollEnabled: String(process.env.PST_POLL_ENABLED ?? fileConfig.pollEnabled ?? false) === 'true'
+    || process.env.PST_POLL_ENABLED === '1' || fileConfig.pollEnabled === true,
+  pollIntervalMinutes: Math.max(1, Number(process.env.PST_POLL_MINUTES || fileConfig.pollIntervalMinutes || 15)),
 };
-if (!config.ingestPath.startsWith('/')) config.ingestPath = '/' + config.ingestPath;
+if (!Number.isInteger(config.discoveryPort) || config.discoveryPort < 1024 || config.discoveryPort > 65535) {
+  config.discoveryPort = 18762;
+}
+if (!Number.isFinite(config.pollIntervalMinutes) || config.pollIntervalMinutes < 1) config.pollIntervalMinutes = 15;
 
 const DB_PATH = path.isAbsolute(config.dbFile) ? config.dbFile : path.join(APP_ROOT, config.dbFile);
 fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
@@ -119,6 +130,21 @@ db.exec(`
     ON reports(collected_ts DESC);
   CREATE INDEX IF NOT EXISTS idx_devices_last_seen
     ON devices(last_seen DESC);
+
+  CREATE TABLE IF NOT EXISTS agents (
+    ip              TEXT PRIMARY KEY,
+    port            INTEGER NOT NULL,
+    device_id       TEXT,
+    computer_name   TEXT,
+    user_name       TEXT,
+    agent_version   TEXT,
+    token_required  INTEGER NOT NULL DEFAULT 0,
+    first_seen      INTEGER NOT NULL,
+    last_seen       INTEGER NOT NULL,
+    last_poll_at    INTEGER,
+    last_poll_ok    INTEGER,
+    last_poll_msg   TEXT
+  );
 `);
 
 // ---------------- 小工具 ----------------
@@ -212,11 +238,12 @@ function settingsPayload(req) {
     host: config.host,
     port: config.port,
     publicBaseUrl: config.publicBaseUrl,
-    ingestPath: config.ingestPath,
     staleMinutes: config.staleMinutes,
-    ingestTokenSet: !!config.ingestToken,
     dashboardTokenSet: !!config.dashboardToken,
-    ingestUrl: base + config.ingestPath,
+    discoveryPort: config.discoveryPort,
+    agentTokenSet: !!config.agentToken,
+    pollEnabled: config.pollEnabled,
+    pollIntervalMinutes: config.pollIntervalMinutes,
     dashboardUrl: base + '/',
     configPath: CONFIG_PATH,
     dbFile: config.dbFile,
@@ -230,12 +257,16 @@ function persistConfig() {
     port: config.port,
     host: config.host,
     publicBaseUrl: config.publicBaseUrl,
-    ingestPath: config.ingestPath,
-    ingestToken: config.ingestToken,
     dashboardToken: config.dashboardToken,
     dbFile: config.dbFile,
     staleMinutes: config.staleMinutes,
+    discoveryPort: config.discoveryPort,
+    agentToken: config.agentToken,
+    pollEnabled: config.pollEnabled,
+    pollIntervalMinutes: config.pollIntervalMinutes,
   });
+  delete next.ingestPath;
+  delete next.ingestToken;
   const tmp = CONFIG_PATH + '.tmp-' + process.pid;
   fs.writeFileSync(tmp, JSON.stringify(next, null, 2) + '\n', 'utf8');
   try {
@@ -248,6 +279,8 @@ function persistConfig() {
 
 const RESERVED_PATHS = new Set([
   '/', '/api/health', '/api/config', '/api/settings', '/api/summary', '/api/hosts',
+  '/api/agents', '/api/agents/scan', '/api/agents/poll', '/api/agents/scan-and-poll',
+  '/api/poll/status',
 ]);
 
 function applySettings(input) {
@@ -282,27 +315,10 @@ function applySettings(input) {
     values.publicBaseUrl = url;
   }
 
-  if (Object.prototype.hasOwnProperty.call(input, 'ingestPath')) {
-    let p = asText(input.ingestPath);
-    if (!p.startsWith('/')) p = '/' + p;
-    p = p.replace(/\/{2,}/g, '/');
-    if (p.length > 120 || /\s|\?|#/.test(p)) errors.push('上报路径不能包含空格、? 或 #');
-    else if (RESERVED_PATHS.has(p) || p.startsWith('/api/hosts/')) errors.push('上报路径与系统接口冲突');
-    else values.ingestPath = p;
-  }
-
   if (Object.prototype.hasOwnProperty.call(input, 'staleMinutes')) {
     const m = asInt(input.staleMinutes, -1);
     if (m < 2 || m > 1440) errors.push('离线判定必须是 2-1440 分钟');
     else values.staleMinutes = m;
-  }
-
-  if (input.clearIngestToken === true) {
-    values.ingestToken = '';
-  } else if (asText(input.ingestToken).length > 0) {
-    const t = asText(input.ingestToken);
-    if (t.length < 8 || t.length > 200) errors.push('上报令牌长度需为 8-200 个字符');
-    else values.ingestToken = t;
   }
 
   if (input.clearDashboardToken === true) {
@@ -313,16 +329,40 @@ function applySettings(input) {
     else values.dashboardToken = t;
   }
 
+  if (Object.prototype.hasOwnProperty.call(input, 'discoveryPort')) {
+    const p = asInt(input.discoveryPort, -1);
+    if (p < 1024 || p > 65535) errors.push('发现端口必须是 1024-65535 的整数');
+    else values.discoveryPort = p;
+  }
+
+  if (Object.prototype.hasOwnProperty.call(input, 'pollIntervalMinutes')) {
+    const m = asInt(input.pollIntervalMinutes, -1);
+    if (m < 1 || m > 1440) errors.push('拉取间隔必须是 1-1440 分钟');
+    else values.pollIntervalMinutes = m;
+  }
+
+  if (Object.prototype.hasOwnProperty.call(input, 'pollEnabled')) {
+    values.pollEnabled = input.pollEnabled === true || input.pollEnabled === '1' || input.pollEnabled === 'true';
+  }
+
+  if (input.clearAgentToken === true) {
+    values.agentToken = '';
+  } else if (asText(input.agentToken).length > 0) {
+    values.agentToken = asText(input.agentToken);
+  }
+
   if (errors.length) return { ok: false, errors };
 
   const old = {
     host: config.host,
     port: config.port,
     publicBaseUrl: config.publicBaseUrl,
-    ingestPath: config.ingestPath,
-    ingestToken: config.ingestToken,
     dashboardToken: config.dashboardToken,
     staleMinutes: config.staleMinutes,
+    discoveryPort: config.discoveryPort,
+    agentToken: config.agentToken,
+    pollEnabled: config.pollEnabled,
+    pollIntervalMinutes: config.pollIntervalMinutes,
   };
   Object.assign(config, values);
 
@@ -337,6 +377,9 @@ function applySettings(input) {
     ok: true,
     restartRequired: config.host !== old.host || config.port !== old.port,
     dashboardTokenChanged: config.dashboardToken !== old.dashboardToken,
+    pollConfigChanged: config.pollEnabled !== old.pollEnabled
+      || config.pollIntervalMinutes !== old.pollIntervalMinutes
+      || config.discoveryPort !== old.discoveryPort,
   };
 }
 
@@ -437,30 +480,20 @@ const bumpDeviceStmt = db.prepare(`
   UPDATE devices SET report_count = report_count + 1 WHERE device_id = ?
 `);
 
-function ingestReport(req, res, bodyText) {
-  if (!config.ingestToken) {
-    return sendJson(res, 503, { ok: false, error: '服务端未配置 ingestToken' });
-  }
-  if (bearer(req) !== config.ingestToken) {
-    return sendJson(res, 401, { ok: false, error: 'invalid ingest token' });
-  }
-
-  let payload;
-  try {
-    payload = JSON.parse(bodyText);
-  } catch {
-    return sendJson(res, 400, { ok: false, error: 'invalid json' });
-  }
+/** 服务端从客户端拉取的报文统一走这里入库（客户端不再主动推送）。 */
+function ingestPayload(payload, meta) {
   if (!payload || typeof payload !== 'object') {
-    return sendJson(res, 400, { ok: false, error: 'empty body' });
+    return { ok: false, status: 400, error: 'empty body' };
   }
-
   const schema = asText(payload.schema);
   if (schema && schema !== 'port-security-tool.device-report') {
-    return sendJson(res, 400, { ok: false, error: 'unsupported schema: ' + schema });
+    return { ok: false, status: 400, error: 'unsupported schema: ' + schema };
   }
 
+  const req = meta && meta.req ? meta.req : { headers: {}, socket: {} };
+  const bodyText = meta && meta.bodyText ? meta.bodyText : JSON.stringify(payload);
   const n = normalizeReport(payload, req, bodyText);
+  if (meta && meta.clientIp) n.clientIp = meta.clientIp;
   const now = Date.now();
 
   db.exec('BEGIN IMMEDIATE');
@@ -473,13 +506,10 @@ function ingestReport(req, res, bodyText) {
 
     if (result.changes === 0) {
       db.exec('COMMIT');
-      return sendJson(res, 200, {
-        ok: true,
-        duplicate: true,
-        deviceId: n.deviceId,
-        reportId: n.reportId,
+      return {
+        ok: true, duplicate: true, deviceId: n.deviceId, reportId: n.reportId,
         message: 'report already exists',
-      });
+      };
     }
 
     const existing = db.prepare('SELECT last_seen FROM devices WHERE device_id = ?').get(n.deviceId);
@@ -508,17 +538,392 @@ function ingestReport(req, res, bodyText) {
   } catch (err) {
     try { db.exec('ROLLBACK'); } catch { }
     console.error('[ingest] ' + err.message);
-    return sendJson(res, 500, { ok: false, error: 'database error' });
+    return { ok: false, status: 500, error: 'database error' };
   }
 
   console.log(`[ingest] ${n.computerName} (${n.primaryIp || '-'}) risk=${n.riskScore}/${n.riskLevel} exposed=${n.portsExposed}`);
-  return sendJson(res, 200, {
-    ok: true,
-    duplicate: false,
-    deviceId: n.deviceId,
-    reportId: n.reportId,
-    receivedAt: now,
+  return {
+    ok: true, duplicate: false, deviceId: n.deviceId, reportId: n.reportId, receivedAt: now,
+  };
+}
+
+// ---------------- 局域网发现 / 定时拉取 ----------------
+
+const DISCOVERY_MAGIC = 'PST-DISCOVER-V1';
+
+const upsertAgentStmt = db.prepare(`
+  INSERT INTO agents
+    (ip, port, device_id, computer_name, user_name, agent_version, token_required,
+     first_seen, last_seen, last_poll_at, last_poll_ok, last_poll_msg)
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, NULL)
+  ON CONFLICT(ip) DO UPDATE SET
+    port = excluded.port,
+    device_id = excluded.device_id,
+    computer_name = excluded.computer_name,
+    user_name = excluded.user_name,
+    agent_version = excluded.agent_version,
+    token_required = excluded.token_required,
+    last_seen = excluded.last_seen
+`);
+
+const markAgentPollStmt = db.prepare(`
+  UPDATE agents SET last_poll_at = ?, last_poll_ok = ?, last_poll_msg = ? WHERE ip = ?
+`);
+
+// ---------------- 地址工具 ----------------
+
+function ipToInt(parts) {
+  return ((parts[0] << 24) >>> 0) + (parts[1] << 16) + (parts[2] << 8) + parts[3];
+}
+function intToIp(v) {
+  return [(v >>> 24) & 255, (v >>> 16) & 255, (v >>> 8) & 255, v & 255].join('.');
+}
+function parseIp(ip) {
+  const parts = asText(ip).split('.').map(Number);
+  if (parts.length !== 4) return null;
+  if (parts.some((v) => !Number.isInteger(v) || v < 0 || v > 255)) return null;
+  return parts;
+}
+
+/** 本机各 IPv4 网段（只保留 ≤1024 地址的段，避免扫描过久）。 */
+function localCidrs() {
+  const list = [];
+  try {
+    const ifaces = os.networkInterfaces();
+    for (const name of Object.keys(ifaces)) {
+      for (const ni of ifaces[name] || []) {
+        if (ni.family !== 'IPv4' || ni.internal) continue;
+        const ipP = parseIp(ni.address);
+        const mkP = parseIp(ni.netmask);
+        if (!ipP || !mkP) continue;
+        let prefix = 0;
+        for (const b of mkP) {
+          let v = b;
+          while (v & 0x80) { prefix++; v = (v << 1) & 0xff; }
+        }
+        const size = Math.pow(2, 32 - prefix);
+        if (size > 1024) continue;
+        const net = ipP.map((v, i) => v & mkP[i]);
+        list.push({
+          start: ipToInt(net),
+          end: ipToInt(net) + size - 1,
+          cidr: net.join('.') + '/' + prefix,
+          broadcast: net.map((v, i) => (v & mkP[i]) | (~mkP[i] & 255)).join('.'),
+        });
+      }
+    }
+  } catch { }
+  return list;
+}
+
+/** 解析 "192.168.1.0/24"、"192.168.1.10-20"、"192.168.1.10" 等写法。 */
+function parseRange(spec) {
+  const s = asText(spec);
+  if (!s) return null;
+  try {
+    const slash = s.indexOf('/');
+    if (slash > 0) {
+      const p = parseIp(s.slice(0, slash));
+      const prefix = Number(s.slice(slash + 1));
+      if (!p || !Number.isInteger(prefix) || prefix < 8 || prefix > 32) return null;
+      const size = Math.pow(2, 32 - prefix);
+      if (size > 4096) return null;
+      const start = ipToInt(p) - (ipToInt(p) % size);
+      return { start, end: start + size - 1 };
+    }
+    const dash = s.indexOf('-');
+    if (dash > 0) {
+      const a = parseIp(s.slice(0, dash).trim());
+      const bRaw = s.slice(dash + 1).trim();
+      let b;
+      if (bRaw.indexOf('.') < 0) {
+        const last = Number(bRaw);
+        if (!a || !Number.isInteger(last) || last < 0 || last > 255) return null;
+        b = [a[0], a[1], a[2], last];
+      } else {
+        b = parseIp(bRaw);
+      }
+      if (!a || !b) return null;
+      const start = Math.min(ipToInt(a), ipToInt(b));
+      const end = Math.max(ipToInt(a), ipToInt(b));
+      if (end - start > 4096) return null;
+      return { start, end };
+    }
+    const one = parseIp(s);
+    if (!one) return null;
+    return { start: ipToInt(one), end: ipToInt(one) };
+  } catch { return null; }
+}
+
+/** 广播地址集合：全局广播 + 各网段定向广播。 */
+function broadcastTargets() {
+  const targets = new Set(['255.255.255.255']);
+  for (const c of localCidrs()) targets.add(c.broadcast);
+  return [...targets];
+}
+
+/** 单播探测地址集合：本机各网段内的主机 + 手工指定范围。 */
+function probeTargets(extraSpecs) {
+  const set = new Set();
+  for (const c of localCidrs()) {
+    for (let v = c.start + 1; v < c.end; v++) set.add(intToIp(v));
+  }
+  for (const spec of (extraSpecs || [])) {
+    const r = parseRange(spec);
+    if (!r) continue;
+    for (let v = r.start; v <= r.end; v++) set.add(intToIp(v));
+  }
+  return [...set];
+}
+
+function agentRecord(data, fallbackIp) {
+  const ip = asText(data.ip) || fallbackIp;
+  return {
+    ip,
+    port: asInt(data.port, config.discoveryPort),
+    deviceId: asText(data.deviceId),
+    computerName: asText(data.computerName || data.computer || data.name) || ip,
+    currentUser: asText(data.user),
+    agentVersion: asText(data.version),
+    tokenRequired: data.token === true || data.token === '1' || data.token === 'true',
+    seenAt: Date.now(),
+  };
+}
+
+/** TCP 直连探测：绕开 UDP 广播被交换机/防火墙拦截的情况。 */
+function tcpPing(ip, port, timeoutMs = 500) {
+  return new Promise((resolve) => {
+    const socket = new net.Socket();
+    let done = false;
+    const finish = (v) => {
+      if (done) return;
+      done = true;
+      try { socket.destroy(); } catch { }
+      resolve(v);
+    };
+    socket.setTimeout(timeoutMs);
+    socket.once('timeout', () => finish(null));
+    socket.once('error', () => finish(null));
+    socket.once('close', () => finish(null));
+    socket.connect(port, ip, () => {
+      try {
+        socket.write('GET /pst/v1/ping HTTP/1.1\r\nHost: ' + ip + '\r\nConnection: close\r\n\r\n');
+      } catch { finish(null); }
+    });
+    let buf = '';
+    socket.on('data', (chunk) => {
+      buf += chunk.toString('utf8');
+      const i = buf.indexOf('\r\n\r\n');
+      if (i < 0) {
+        if (buf.length > 16384) finish(null);
+        return;
+      }
+      try {
+        const data = JSON.parse(buf.slice(i + 4));
+        if (data && data.pst === 'pst-agent') finish(data);
+        else finish(null);
+      } catch { finish(null); }
+    });
   });
+}
+
+async function runPool(items, limit, worker) {
+  const results = [];
+  let cursor = 0;
+  const runners = [];
+  const size = Math.min(limit, Math.max(1, items.length));
+  for (let i = 0; i < size; i++) {
+    runners.push((async () => {
+      while (cursor < items.length) {
+        const idx = cursor++;
+        try { results[idx] = await worker(items[idx], idx); }
+        catch { results[idx] = null; }
+      }
+    })());
+  }
+  await Promise.all(runners);
+  return results;
+}
+
+/**
+ * 三路并行发现：
+ *  1) UDP 广播（全网 + 各网段定向广播）
+ *  2) UDP 单播探测（逐个网段内地址）
+ *  3) TCP 端口探测（/pst/v1/ping，免令牌）
+ * 任一路命中即算发现，合并结果返回。
+ */
+async function discoverAgents(opts = {}) {
+  const timeoutMs = opts.timeoutMs || 8000;
+  const extraSpecs = opts.cidrs || [];
+  const port = config.discoveryPort;
+  const found = new Map();
+
+  const record = (data, ip) => {
+    if (!data || data.pst !== 'pst-agent') return;
+    const rec = agentRecord(data, ip);
+    if (!rec.ip) return;
+    const old = found.get(rec.ip);
+    if (!old) { found.set(rec.ip, rec); return; }
+    if (!old.deviceId && rec.deviceId) old.deviceId = rec.deviceId;
+    if (!old.computerName || old.computerName === old.ip) old.computerName = rec.computerName;
+    if (!old.currentUser) old.currentUser = rec.currentUser;
+    if (!old.agentVersion) old.agentVersion = rec.agentVersion;
+    old.tokenRequired = old.tokenRequired || rec.tokenRequired;
+  };
+
+  // ---- UDP：广播 + 单播 ----
+  const udpTask = new Promise((resolve) => {
+    let finished = false;
+    let timer = null;
+    let graceTimer = null;
+    const socket = dgram.createSocket('udp4');
+    const finish = () => {
+      if (finished) return;
+      finished = true;
+      if (timer) clearTimeout(timer);
+      if (graceTimer) clearTimeout(graceTimer);
+      try { socket.close(); } catch { }
+      resolve();
+    };
+    socket.on('message', (msg, rinfo) => {
+      let data;
+      try { data = JSON.parse(msg.toString('utf8')); } catch { return; }
+      const before = found.size;
+      record(data, rinfo.address);
+      // 已收到回应就无需再等满整个超时，留一点时间收尾即可
+      if (found.size > before && !graceTimer) graceTimer = setTimeout(finish, 600);
+    });
+    socket.on('error', () => finish());
+    try {
+      socket.bind(0, '0.0.0.0', () => {
+        try { socket.setBroadcast(true); } catch { }
+        const buf = Buffer.from(DISCOVERY_MAGIC, 'utf8');
+        const list = [...broadcastTargets(), ...probeTargets(extraSpecs)];
+        for (const target of list) {
+          try { socket.send(buf, port, target); } catch { }
+        }
+        timer = setTimeout(finish, Math.max(1200, Math.min(timeoutMs, 4000)));
+      });
+    } catch { finish(); }
+  });
+
+  // ---- TCP：逐地址探测 ----
+  const tcpTask = (async () => {
+    const list = probeTargets(extraSpecs);
+    const hits = await runPool(list, 128, (ip) => tcpPing(ip, port, 500));
+    for (const data of hits) {
+      if (data) record(data, '');
+    }
+  })();
+
+  await Promise.all([udpTask, tcpTask]);
+  return [...found.values()].sort((a, b) => a.ip.localeCompare(b.ip));
+}
+
+function saveAgents(found) {
+  const now = Date.now();
+  try {
+    for (const a of found) {
+      upsertAgentStmt.run(
+        a.ip, a.port, a.deviceId, a.computerName, a.currentUser, a.agentVersion,
+        a.tokenRequired ? 1 : 0, now, now
+      );
+    }
+  } catch (err) {
+    console.error('[discover] ' + err.message);
+  }
+  return found.length;
+}
+
+function listAgents() {
+  const now = Date.now();
+  return db.prepare('SELECT * FROM agents ORDER BY last_seen DESC, ip ASC').all().map((a) => ({
+    ip: a.ip,
+    port: a.port,
+    deviceId: a.device_id || '',
+    computerName: a.computer_name || a.ip,
+    currentUser: a.user_name || '',
+    agentVersion: a.agent_version || '',
+    tokenRequired: !!a.token_required,
+    firstSeen: a.first_seen,
+    lastSeen: a.last_seen,
+    alive: now - a.last_seen <= 10 * 60000,
+    lastPollAt: a.last_poll_at || null,
+    lastPollOk: a.last_poll_ok == null ? null : !!a.last_poll_ok,
+    lastPollMsg: a.last_poll_msg || '',
+  }));
+}
+
+/** 从一台客户端拉取最新采集报文并入库。 */
+async function pollOne(agent) {
+  const url = `http://${agent.ip}:${agent.port}/pst/v1/device?refresh=1`;
+  try {
+    const headers = { Accept: 'application/json' };
+    if (config.agentToken) headers['X-Api-Token'] = config.agentToken;
+    const res = await fetch(url, { headers, signal: AbortSignal.timeout(12000) });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const text = await res.text();
+    const payload = JSON.parse(text);
+    const result = ingestPayload(payload, { clientIp: agent.ip, bodyText: text });
+    if (!result.ok) throw new Error(result.error || '入库失败');
+    markAgentPollStmt.run(Date.now(), 1, result.duplicate ? '数据未变化' : '拉取成功', agent.ip);
+    return { ip: agent.ip, computerName: agent.computer_name || agent.ip, ok: true,
+      message: result.duplicate ? '数据未变化' : '拉取成功', deviceId: result.deviceId };
+  } catch (err) {
+    const message = String(err && err.message ? err.message : err).slice(0, 200);
+    markAgentPollStmt.run(Date.now(), 0, message, agent.ip);
+    console.error(`[poll] ${agent.ip}: ${message}`);
+    return { ip: agent.ip, computerName: agent.computer_name || agent.ip, ok: false, message };
+  }
+}
+
+async function pollAgents() {
+  const agents = db.prepare('SELECT * FROM agents ORDER BY ip').all();
+  const results = [];
+  for (let i = 0; i < agents.length; i += 8) {
+    const batch = agents.slice(i, i + 8);
+    const rows = await Promise.all(batch.map((a) => pollOne(a)));
+    results.push(...rows);
+  }
+  const success = results.filter((r) => r.ok).length;
+  return {
+    ok: true,
+    total: agents.length,
+    success,
+    failed: results.length - success,
+    results,
+    at: Date.now(),
+  };
+}
+
+let pollBusy = false;
+const pollState = { lastRunAt: null, lastResult: null };
+
+/** doScan=true 时先重新发现一遍，再加拉已知客户端。 */
+async function runPollCycle(doScan) {
+  if (pollBusy) return { ok: false, error: '上一轮拉取仍在进行中' };
+  pollBusy = true;
+  try {
+    let discovered = 0;
+    if (doScan) discovered = saveAgents(await discoverAgents({ timeoutMs: 7000 }));
+    const result = await pollAgents();
+    pollState.lastRunAt = result.at;
+    pollState.lastResult = { total: result.total, success: result.success, failed: result.failed };
+    return Object.assign({ ok: true, discovered }, result);
+  } finally {
+    pollBusy = false;
+  }
+}
+
+let pollTimer = null;
+function restartPollTimer() {
+  if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+  if (!config.pollEnabled) return;
+  const ms = config.pollIntervalMinutes * 60000;
+  pollTimer = setInterval(() => {
+    runPollCycle(true).catch((err) => console.error('[poll] ' + err.message));
+  }, ms);
+  console.log(`[poll] 定时拉取已启用：每 ${config.pollIntervalMinutes} 分钟扫描并拉取客户端数据`);
 }
 
 // ---------------- 查询 ----------------
@@ -762,13 +1167,15 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (req.method === 'POST' && (
-      pathname === config.ingestPath
-      || pathname === '/api/v1/reports'
+      pathname === '/api/v1/reports'
       || pathname === '/api/report'
       || pathname === '/report'
     )) {
-      const body = await readBody(req);
-      ingestReport(req, res, body);
+      // 客户端不再主动推送：数据只从「扫描发现 → 主动拉取」通道进入
+      sendJson(res, 410, {
+        ok: false,
+        error: '客户端主动上传通道已停用，请由服务端在「客户端发现与拉取」页扫描并拉取数据',
+      });
       return;
     }
 
@@ -810,11 +1217,90 @@ const server = http.createServer(async (req, res) => {
           sendJson(res, 400, { ok: false, errors: result.errors });
           return;
         }
+        if (result.pollConfigChanged) restartPollTimer();
         sendJson(res, 200, {
           ok: true,
           restartRequired: result.restartRequired,
           dashboardTokenChanged: result.dashboardTokenChanged,
+          pollConfigChanged: result.pollConfigChanged,
           settings: settingsPayload(req),
+        });
+        return;
+      }
+
+      if (req.method === 'GET' && pathname === '/api/agents') {
+        sendJson(res, 200, { agents: listAgents(), discoveryPort: config.discoveryPort });
+        return;
+      }
+
+      if (req.method === 'POST' && pathname === '/api/agents/scan') {
+        let cidrs = [];
+        try {
+          const body = await readBody(req, 256 * 1024);
+          if (body) {
+            const input = JSON.parse(body);
+            if (input && Array.isArray(input.cidrs)) cidrs = input.cidrs.map(asText).filter(Boolean).slice(0, 16);
+          }
+        } catch { }
+        const started = Date.now();
+        const found = await discoverAgents({ timeoutMs: 8000, cidrs });
+        const count = saveAgents(found);
+        sendJson(res, 200, {
+          ok: true,
+          count,
+          targets: {
+            broadcasts: broadcastTargets(),
+            cidrs: localCidrs().map((c) => c.cidr),
+            probed: probeTargets(cidrs).length,
+          },
+          agents: listAgents(),
+          elapsedMs: Date.now() - started,
+          at: Date.now(),
+        });
+        return;
+      }
+
+      if (req.method === 'POST' && pathname === '/api/agents/poll') {
+        let only = '';
+        try {
+          const body = await readBody(req, 64 * 1024);
+          if (body) only = asText(JSON.parse(body).only);
+        } catch { }
+        if (only) {
+          const agent = db.prepare('SELECT * FROM agents WHERE ip = ?').get(only);
+          if (!agent) {
+            sendJson(res, 404, { ok: false, error: '客户端不在发现列表中' });
+            return;
+          }
+          const row = await pollOne(agent);
+          sendJson(res, row.ok ? 200 : 502, {
+            ok: row.ok, total: 1, success: row.ok ? 1 : 0,
+            failed: row.ok ? 0 : 1, results: [row], at: Date.now(),
+            agents: listAgents(),
+          });
+          return;
+        }
+        const result = await runPollCycle(false);
+        result.agents = listAgents();
+        sendJson(res, result.ok ? 200 : 409, result);
+        return;
+      }
+
+      if (req.method === 'POST' && pathname === '/api/agents/scan-and-poll') {
+        const result = await runPollCycle(true);
+        result.agents = listAgents();
+        sendJson(res, result.ok ? 200 : 409, result);
+        return;
+      }
+
+      if (req.method === 'GET' && pathname === '/api/poll/status') {
+        sendJson(res, 200, {
+          enabled: config.pollEnabled,
+          intervalMinutes: config.pollIntervalMinutes,
+          discoveryPort: config.discoveryPort,
+          running: pollBusy,
+          lastRunAt: pollState.lastRunAt,
+          lastResult: pollState.lastResult,
         });
         return;
       }
@@ -852,20 +1338,24 @@ const server = http.createServer(async (req, res) => {
 });
 
 server.listen(config.port, config.host, () => {
+  restartPollTimer();
   const shownHost = config.host === '0.0.0.0' ? 'localhost' : config.host;
   console.log('');
   console.log('  PST 终端安全运营中心');
   console.log('  ----------------------------------------');
   console.log('  数据大屏 : http://' + shownHost + ':' + config.port + '/');
-  console.log('  上报接口 : POST ' + (config.publicBaseUrl || ('http://' + shownHost + ':' + config.port)) + config.ingestPath);
+  console.log('  数据来源 : 局域网扫描发现 + 服务端主动拉取（客户端不再主动推送）');
   console.log('  数据库   : ' + DB_PATH);
-  console.log('  上报令牌 : ' + (config.ingestToken ? '已配置' : '未配置（上报会被拒绝）'));
+  console.log('  拉取令牌 : ' + (config.agentToken ? '已配置' : '未配置（客户端可免令牌被拉取）'));
   console.log('  大屏令牌 : ' + (config.dashboardToken ? '已启用' : '未启用（局域网可直接访问）'));
+  console.log('  发现端口 : UDP ' + config.discoveryPort + '（客户端需开启局域网代理）');
+  console.log('  定时拉取 : ' + (config.pollEnabled ? '每 ' + config.pollIntervalMinutes + ' 分钟' : '未启用'));
   console.log('  ----------------------------------------');
   console.log('');
 });
 
 process.on('SIGINT', () => {
+  try { if (pollTimer) clearInterval(pollTimer); } catch { }
   try { db.close(); } catch { }
   process.exit(0);
 });

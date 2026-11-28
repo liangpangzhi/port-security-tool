@@ -18,8 +18,8 @@ namespace PortSecurityTool
         private bool _reallyExit;
         private bool _trayHintShown;
         private readonly bool _startMinimized;
-        private Timer _autoTimer;
-        private volatile bool _collecting;
+        private Timer _syncTimer;
+        private volatile bool _syncing;
 
         internal WebBrowser Browser { get { return _browser; } }
 
@@ -67,22 +67,9 @@ namespace PortSecurityTool
             _browser.DocumentText = LoadEmbeddedHtml();
 
             InitTray();
-            RestoreAutoCollect();
-            InitApiServer();
-        }
-
-        /// <summary>按配置启动本地数据接口，并补发上离线期间积压的报文。</summary>
-        private void InitApiServer()
-        {
-            try { if (ApiServer.Enabled) ApiServer.Start(); } catch { }
-            try
-            {
-                Task.Run(delegate
-                {
-                    try { ApiClient.FlushOutbox(20); } catch { }
-                });
-            }
-            catch { }
+            // 数据上传：启动局域网代理（供服务端扫描拉取）与自动上传定时器
+            try { if (LanAgent.Enabled) LanAgent.Start(); } catch { }
+            RestoreApiSync();
         }
 
         // ---------------- 托盘 ----------------
@@ -92,7 +79,7 @@ namespace PortSecurityTool
             {
                 _trayMenu = new ContextMenuStrip();
                 _trayMenu.Items.Add("显示主界面", null, delegate { ShowMain(); });
-                _trayMenu.Items.Add("立即采集并上报", null, delegate { RunCollect(true); });
+                _trayMenu.Items.Add("立即上传数据（供服务端拉取）", null, delegate { RunApiSync(false); });
                 _trayMenu.Items.Add(new ToolStripSeparator());
                 _trayMenu.Items.Add("退出", null, delegate { RealExit(); });
 
@@ -150,8 +137,8 @@ namespace PortSecurityTool
         {
             _reallyExit = true;
             try { EmbeddedRemote.CloseAll(); } catch { }
-            try { if (_autoTimer != null) _autoTimer.Stop(); } catch { }
-            try { ApiServer.Stop(); } catch { }
+            try { if (_syncTimer != null) _syncTimer.Stop(); } catch { }
+            try { LanAgent.Stop(); } catch { }
             try
             {
                 if (_tray != null)
@@ -198,83 +185,78 @@ namespace PortSecurityTool
             if (_startMinimized) HideToTray();
         }
 
-        // ---------------- 定时采集 ----------------
-        public void RestoreAutoCollect()
+        // ---------------- 定时自动同步（客户端主动推送到服务端） ----------------
+        public void RestoreApiSync()
         {
             try
             {
-                if (_autoTimer == null)
+                if (_syncTimer == null)
                 {
-                    _autoTimer = new Timer();
-                    _autoTimer.Tick += delegate { RunCollect(true); };
+                    _syncTimer = new Timer();
+                    _syncTimer.Tick += delegate { RunApiSync(true); };
                 }
-                RestartAutoCollect();
+                RestartApiSync();
             }
             catch { }
         }
 
-        public void RestartAutoCollect()
+        public void RestartApiSync()
         {
             try
             {
-                if (_autoTimer == null) return;
-                _autoTimer.Stop();
-                bool on = AppConfig.GetBool("collect.auto", false);
-                int minutes = AppConfig.GetInt("collect.interval", 60);
+                if (_syncTimer == null) return;
+                _syncTimer.Stop();
+                bool on = AppConfig.GetBool("api.sync.enabled", true);
+                int minutes = AppConfig.GetInt("api.sync.interval", 15);
                 if (minutes < 1) minutes = 1;
                 if (minutes > 10080) minutes = 10080;
                 if (on)
                 {
-                    _autoTimer.Interval = minutes * 60 * 1000;
-                    _autoTimer.Start();
+                    _syncTimer.Interval = minutes * 60 * 1000;
+                    _syncTimer.Start();
                 }
             }
             catch { }
         }
 
-        /// <summary>执行一次采集上报（后台线程，不阻塞界面）。fromTimer=true 表示由定时器触发。</summary>
-        public void RunCollect(bool fromTimer)
+        /// <summary>执行一次采集并刷新可供服务端拉取的缓存，返回 "OK|说明"。</summary>
+        internal string UploadNow()
         {
-            if (_collecting) return;
-            _collecting = true;
+            try
+            {
+                string time = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+                LanAgent.RefreshCache();
+                AppConfig.Set("api.sync.lastTime", time);
+                AppConfig.Set("api.lastTime", time);
+                AppConfig.Set("api.lastResult", "数据已更新，服务端可直接拉取");
+                return "OK|已重新采集并刷新数据（" + time + "），服务端扫描到本机后即可拉取最新快照。";
+            }
+            catch (Exception ex) { return "ERR|采集失败：" + ex.Message; }
+        }
 
-            string ip = AppConfig.Get("collect.ip", "");
-            string share = AppConfig.Get("collect.share", "");
-            string user = AppConfig.Get("collect.user", "");
-            string pass = AppConfig.Unprotect(AppConfig.Get("collect.pass", ""));
-
+        private void RunApiSync(bool fromTimer)
+        {
+            if (_syncing) return;
+            _syncing = true;
             Task.Run(delegate
             {
-                Collector.SendResult r;
-                try
-                {
-                    r = Collector.CollectAndSend(ip, share, user, pass);
-                }
-                catch (Exception ex)
-                {
-                    r = new Collector.SendResult { Ok = false, Message = "采集异常：" + ex.Message };
-                }
-
-                try
-                {
-                    AppConfig.Set("collect.lastTime", DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
-                    AppConfig.Set("collect.lastResult", r.Message.Replace("\r", "").Replace("\n", " | "));
-                }
-                catch { }
-
+                string result = "";
+                try { result = UploadNow(); }
+                catch (Exception ex) { result = "ERR|同步异常：" + ex.Message; }
                 try
                 {
                     BeginInvoke(new Action(delegate
                     {
-                        _collecting = false;
-                        NotifyJs(r.Ok ? "ok" : "warn", "采集上报：" + r.Message.Replace("\n", " "));
+                        _syncing = false;
+                        NotifyJs(result.StartsWith("OK|", StringComparison.Ordinal) ? "ok" : "warn",
+                            "自动上传：" + result.Substring(result.IndexOf('|') + 1));
                         if (fromTimer && !Visible && _tray != null)
-                            _tray.ShowBalloonTip(3000, "定时采集",
-                                r.Ok ? "上报成功：" + System.IO.Path.GetFileName(r.LocalFile) : "上报失败，详见主界面日志",
-                                r.Ok ? ToolTipIcon.Info : ToolTipIcon.Warning);
+                            _tray.ShowBalloonTip(2500, "自动上传",
+                                result.StartsWith("OK|", StringComparison.Ordinal) ? "数据已刷新，服务端可随时拉取" : "采集失败，详见日志",
+                                result.StartsWith("OK|", StringComparison.Ordinal) ? ToolTipIcon.Info : ToolTipIcon.Warning);
                     }));
                 }
-                catch { _collecting = false; }
+                catch { _syncing = false; }
             });
         }
 

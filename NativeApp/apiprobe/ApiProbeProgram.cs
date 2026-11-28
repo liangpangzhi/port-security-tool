@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Net;
+using System.Net.Sockets;
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
@@ -136,115 +137,27 @@ namespace PortSecurityTool
                 }
                 catch (Exception ex) { Check("Schema 合法", false, ex.Message); }
 
-                // ---------- 3. 文档资源 ----------
-                Check("接口文档已嵌入", ApiDoc.Text.Length > 1000 && ApiDoc.Text.Contains("schemaVersion"),
-                    "len=" + ApiDoc.Text.Length);
-
-                // ---------- 4. 模拟服务端：推送成功 ----------
-                string lastBody = null, lastAuth = null, lastSchemaHdr = null, lastReportHdr = null;
-                int mockPort = 18899;
-                var mock = new HttpListener();
-                mock.Prefixes.Add("http://127.0.0.1:" + mockPort + "/");
-                bool mockOk = true;
-                try { mock.Start(); } catch (Exception ex) { mockOk = false; Check("模拟服务端启动", false, ex.Message); }
-
-                if (mockOk)
-                {
-                    var th = new Thread(delegate ()
-                    {
-                        while (mock.IsListening)
-                        {
-                            HttpListenerContext ctx;
-                            try { ctx = mock.GetContext(); } catch { break; }
-                            try
-                            {
-                                lastAuth = ctx.Request.Headers["Authorization"];
-                                lastSchemaHdr = ctx.Request.Headers["X-PST-Schema"];
-                                lastReportHdr = ctx.Request.Headers["X-PST-Report-Id"];
-                                using (var rd = new StreamReader(ctx.Request.InputStream, Encoding.UTF8))
-                                    lastBody = rd.ReadToEnd();
-                                var bytes = Encoding.UTF8.GetBytes("{\"ok\":true,\"stored\":true}");
-                                ctx.Response.StatusCode = 201;
-                                ctx.Response.ContentType = "application/json";
-                                ctx.Response.OutputStream.Write(bytes, 0, bytes.Length);
-                            }
-                            catch { }
-                            finally { try { ctx.Response.Close(); } catch { } }
-                        }
-                    }) { IsBackground = true };
-                    th.Start();
-
-                    AppConfig.SetBool("api.enabled", true);
-                    AppConfig.Set("api.url", "http://127.0.0.1:" + mockPort + "/api/v1/device-reports");
-                    AppConfig.Set("api.token", AppConfig.Protect("probe-token"));
-                    AppConfig.SetInt("api.timeout", 6);
-
-                    var pr = ApiClient.Push(s, null);
-                    Check("推送返回 201 判定成功", pr.Ok && pr.Status == 201, "status=" + pr.Status + " " + pr.Message);
-                    Check("令牌以 Bearer 发送", lastAuth == "Bearer probe-token", lastAuth);
-                    Check("携带 X-PST-Schema", lastSchemaHdr != null && lastSchemaHdr.Contains("device-report"), lastSchemaHdr);
-                    Check("携带 X-PST-Report-Id", !string.IsNullOrEmpty(lastReportHdr), lastReportHdr);
-
-                    bool bodyOk = false;
-                    try
-                    {
-                        using (var bd = JsonDocument.Parse(lastBody))
-                            bodyOk = bd.RootElement.GetProperty("schemaVersion").GetString() == "1.0"
-                                  && bd.RootElement.GetProperty("device").GetProperty("computerName").GetString()
-                                        == Environment.MachineName;
-                    }
-                    catch { }
-                    Check("服务端收到的报文可解析", bodyOk, "len=" + (lastBody == null ? 0 : lastBody.Length));
-
-                    // ---------- 5. 失败入队 + 补发 ----------
-                    AppConfig.Set("api.url", "http://127.0.0.1:1/api");
-                    int before = ApiClient.OutboxCount();
-                    var fail = ApiClient.Push(s, null);
-                    int after = ApiClient.OutboxCount();
-                    Check("不可达时进入待发队列", !fail.Ok && fail.Queued && after == before + 1,
-                        "ok=" + fail.Ok + " queued=" + fail.Queued + " outbox " + before + "→" + after + " " + fail.Message);
-
-                    AppConfig.Set("api.url", "http://127.0.0.1:" + mockPort + "/api/v1/device-reports");
-                    string flush = ApiClient.FlushOutbox(10);
-                    Check("补发队列成功", flush.EndsWith("/1") || ApiClient.OutboxCount() == 0, "flush=" + flush + " left=" + ApiClient.OutboxCount());
-                }
-
-                // ---------- 6. 本地查询服务 ----------
-                int srvPort = 18898;
-                AppConfig.SetBool("api.local.enabled", true);
-                AppConfig.SetInt("api.local.port", srvPort);
+                // ---------- 3. 局域网代理：UDP 发现 + TCP 拉取 ----------
+                const int lanPort = 18897;
+                AppConfig.SetBool("api.lan.enabled", true);
+                AppConfig.SetInt("api.lan.port", lanPort);
                 AppConfig.Set("api.local.token", "");
-                ApiServer.Stop();
-                string srvErr = ApiServer.Start();
-                Check("本地服务启动", srvErr.Length == 0 && ApiServer.Running, srvErr.Length > 0 ? srvErr : ApiServer.BaseUrl);
+                LanAgent.Stop();
+                string lanErr = LanAgent.Start();
+                Check("局域网代理启动", lanErr.Length == 0 && LanAgent.Running,
+                      lanErr.Length > 0 ? lanErr : LanAgent.BaseUrl);
 
-                if (ApiServer.Running)
+                if (LanAgent.Running)
                 {
-                    string baseUrl = "http://127.0.0.1:" + srvPort;
-                    var http = new HttpClient();
-                    http.Timeout = TimeSpan.FromSeconds(20);
+                    // UDP 单播探测应答
+                    string reply = UdpProbe("127.0.0.1", lanPort);
+                    Check("UDP 发现应答", reply.Contains("\"pst\"") && reply.Contains("pst-agent"), Head(reply));
 
-                    Func<string, string, string> req = delegate (string method, string path)
-                    {
-                        try
-                        {
-                            HttpRequestMessage m = method == "GET"
-                                ? new HttpRequestMessage(HttpMethod.Get, baseUrl + path)
-                                : new HttpRequestMessage(HttpMethod.Post, baseUrl + path);
-                            if (method != "GET") m.Content = new StringContent("{}", Encoding.UTF8, "application/json");
-                            using (var r = http.SendAsync(m).GetAwaiter().GetResult())
-                                return r.Content.ReadAsStringAsync().GetAwaiter().GetResult();
-                        }
-                        catch (Exception ex) { return "ERR:" + ex.Message; }
-                    };
+                    // TCP 只读接口
+                    string ping = Http("GET", "http://127.0.0.1:" + lanPort + "/pst/v1/ping", null, out int ps);
+                    Check("GET /pst/v1/ping", ps == 200 && ping.Contains("\"pst\""), "HTTP " + ps + " " + Head(ping));
 
-                    string health = req("GET", "/api/v1/health");
-                    bool healthOk = false;
-                    try { using (var d = JsonDocument.Parse(health)) healthOk = d.RootElement.GetProperty("status").GetString() == "ok"; }
-                    catch { }
-                    Check("GET /health", healthOk, Head(health));
-
-                    string dev = req("GET", "/api/v1/device");
+                    string dev = Http("GET", "http://127.0.0.1:" + lanPort + "/pst/v1/device", null, out int ds);
                     bool devOk = false;
                     string devId = "";
                     try
@@ -256,50 +169,23 @@ namespace PortSecurityTool
                         }
                     }
                     catch { }
-                    Check("GET /device", devOk, Head(dev));
+                    Check("GET /pst/v1/device", ds == 200 && devOk, "HTTP " + ds + " " + Head(dev));
 
-                    string ports = req("GET", "/api/v1/ports");
-                    bool portsOk = false;
-                    try { using (var d = JsonDocument.Parse(ports)) portsOk = d.RootElement.GetProperty("items").GetArrayLength() == 84; }
+                    // 令牌保护：设置令牌后不带令牌应被拒绝
+                    AppConfig.Set("api.local.token", AppConfig.Protect("lan-secret"));
+                    string noAuth = Http("GET", "http://127.0.0.1:" + lanPort + "/pst/v1/device", null, out int ns);
+                    Check("拉取接口令牌保护", ns == 401, "HTTP " + ns + " " + Head(noAuth));
+
+                    string withTok = Http("GET", "http://127.0.0.1:" + lanPort + "/pst/v1/device", "lan-secret", out int ts, "X-Api-Token");
+                    bool tokOk = false;
+                    try { using (var d = JsonDocument.Parse(withTok)) tokOk = d.RootElement.GetProperty("device").GetProperty("deviceId").GetString() == devId; }
                     catch { }
-                    Check("GET /ports", portsOk, Head(ports));
-
-                    string schema = req("GET", "/api/v1/schema");
-                    Check("GET /schema", schema.Contains("json-schema"), Head(schema));
-
-                    string collect = req("POST", "/api/v1/collect");
-                    string devId2 = "";
-                    try { using (var d = JsonDocument.Parse(collect)) devId2 = d.RootElement.GetProperty("device").GetProperty("deviceId").GetString(); }
-                    catch { }
-                    Check("POST /collect 重新采集", devId2.Length > 0 && devId2 == devId, devId + " vs " + devId2);
-
-                    string idx = req("GET", "/api/v1");
-                    Check("GET / 索引页", idx.Contains("/api/v1/device"), Head(idx));
-
-                    string notFound = req("GET", "/api/v1/nope");
-                    Check("未知接口返回错误体", notFound.Contains("not_found"), Head(notFound));
-
-                    // 表格下载
-                    try
-                    {
-                        var bytes = http.GetByteArrayAsync(baseUrl + "/api/v1/report.xlsx").GetAwaiter().GetResult();
-                        Check("GET /report.xlsx", bytes.Length > 3000 && bytes[0] == 0x50 && bytes[1] == 0x4B,
-                            bytes.Length + " bytes");
-                    }
-                    catch (Exception ex) { Check("GET /report.xlsx", false, ex.Message); }
-
-                    // 令牌保护
-                    AppConfig.Set("api.local.token", AppConfig.Protect("local-secret"));
-                    string noAuth = req("GET", "/api/v1/health");
-                    bool protectedOk = noAuth.Contains("unauthorized");
-                    string authed = req("GET", "/api/v1/health?token=local-secret");
-                    Check("本地服务令牌保护", protectedOk && authed.Contains("\"ok\""), "noAuth=" + Head(noAuth));
-
-                    http.Dispose();
+                    Check("带令牌可拉取数据", ts == 200 && tokOk, "HTTP " + ts);
+                    AppConfig.Set("api.local.token", "");
                 }
-                ApiServer.Stop();
+                LanAgent.Stop();
 
-                // ---------- 7. 文档导出 ----------
+                // ---------- 4. 契约样例导出（供服务端联调） ----------
                 string expDir = Path.Combine(
                     Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "PortSecurityTool", "api");
                 try
@@ -308,12 +194,12 @@ namespace PortSecurityTool
                 }
                 catch { }
                 Directory.CreateDirectory(expDir);
-                File.WriteAllText(Path.Combine(expDir, "API接口说明_v1.0.md"), ApiDoc.Text, new UTF8Encoding(false));
                 File.WriteAllText(Path.Combine(expDir, "schema_1.0.json"), ApiReport.SchemaJson(), new UTF8Encoding(false));
                 File.WriteAllText(Path.Combine(expDir, "example_1.0.json"), ApiReport.ToJson(Collector.Collect(), null, true), new UTF8Encoding(false));
                 var files = Directory.GetFiles(expDir);
-                Check("文档三件套写入", files.Length == 3, string.Join(",", Array.ConvertAll(files, Path.GetFileName)));
+                Check("契约样例写入", files.Length == 2, string.Join(",", Array.ConvertAll(files, Path.GetFileName)));
                 foreach (var f in files) W("       " + Path.GetFileName(f) + "  " + new FileInfo(f).Length + " bytes");
+
                 // ---------- 9. 远程桌面：代理 / 局域网发现 / 临时放行 ----------
                 try
                 {
@@ -421,7 +307,7 @@ namespace PortSecurityTool
                     if (string.IsNullOrEmpty(kv.Value)) AppConfig.Set(kv.Key, "");
                     else AppConfig.Set(kv.Key, kv.Value);
                 }
-                try { ApiServer.Stop(); } catch { }
+                try { LanAgent.Stop(); } catch { }
             }
         }
 
@@ -490,7 +376,7 @@ namespace PortSecurityTool
             catch { return "?"; }
         }
 
-        private static string Http(string method, string url, string token, out int status)
+        private static string Http(string method, string url, string token, out int status, string tokenHeader = "X-Pst-Token")
         {
             status = 0;
             try
@@ -499,12 +385,31 @@ namespace PortSecurityTool
                 {
                     c.Timeout = TimeSpan.FromSeconds(10);
                     var req = new HttpRequestMessage(new HttpMethod(method), url);
-                    if (!string.IsNullOrEmpty(token)) req.Headers.TryAddWithoutValidation("X-Pst-Token", token);
+                    if (!string.IsNullOrEmpty(token)) req.Headers.TryAddWithoutValidation(tokenHeader, token);
                     using (var r = c.SendAsync(req).GetAwaiter().GetResult())
                     {
                         status = (int)r.StatusCode;
                         return r.Content.ReadAsStringAsync().GetAwaiter().GetResult();
                     }
+                }
+            }
+            catch (Exception ex) { return "ERR:" + ex.Message; }
+        }
+
+
+        /// <summary>向目标发一次 UDP 发现探测，返回应答文本（超时 3 秒）。</summary>
+        private static string UdpProbe(string ip, int port)
+        {
+            try
+            {
+                using (var udp = new UdpClient())
+                {
+                    udp.Client.ReceiveTimeout = 3000;
+                    var data = Encoding.UTF8.GetBytes("PST-DISCOVER-V1");
+                    udp.Send(data, data.Length, ip, port);
+                    var ep = new IPEndPoint(IPAddress.Any, 0);
+                    var buf = udp.Receive(ref ep);
+                    return Encoding.UTF8.GetString(buf);
                 }
             }
             catch (Exception ex) { return "ERR:" + ex.Message; }
