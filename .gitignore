@@ -8,6 +8,8 @@ build/
 *.suo
 *.pdb
 *.log
+# 成品 exe 通过 GitHub Releases 分发，不进 Git 历史
+dist/*.exe
 
 # ---- 中间文件 ----
 NativeApp/ui.html.tmp

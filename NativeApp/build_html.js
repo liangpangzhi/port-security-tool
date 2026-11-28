@@ -72,25 +72,9 @@ var __host = {
   ExportApiDoc: function(){ return __ext().ExportApiDoc(); },
   CopyText: function(t){ return __ext().CopyText(t); },
   OpenUrl: function(u){ return __ext().OpenUrl(u); },
-  // ---- 局域网远程桌面 ----
-  RdpCidrs: function(){ return __ext().RdpCidrs(); },
-  RdpScanStart: function(spec){ return __ext().RdpScanStart(spec || ""); },
-  RdpScanState: function(){ return __ext().RdpScanState(); },
-  RdpScanRows: function(){ return __ext().RdpScanRows(); },
-  RdpScanStop: function(){ return __ext().RdpScanStop(); },
-  RdpConnect: function(ip, user, clip, drives, w, h){
-    return __ext().RdpConnect(ip || "", user || "", !!clip, !!drives,
-                              w === undefined ? 1600 : w, h === undefined ? 900 : h);
-  },
-  RdpRequest: function(ip){ return __ext().RdpRequest(ip || ""); },
-  RdpReqState: function(){ return __ext().RdpReqState(); },
-  RdpReqReset: function(){ return __ext().RdpReqReset(); },
-  RdpClose: function(ip){ return __ext().RdpClose(ip || ""); },
-  GetRdpSettings: function(){ return __ext().GetRdpSettings(); },
-  SaveRdpConfig: function(on, port, token){
-    return __ext().SaveRdpConfig(!!on, port === undefined ? 18761 : port, token || "");
-  },
-  RdpRestoreLocal: function(){ return __ext().RdpRestoreLocal(); },
+  // ---- 远程桌面（SubnetDesk）----
+  OpenSubnetDesk: function(target){ return __ext().OpenSubnetDesk(target || ""); },
+  CloseSubnetDesk: function(){ return __ext().CloseSubnetDesk(); },
   // ---- Scripting.FileSystemObject ----
   GetSpecialFolder: function(n){ return __ext().GetSpecialFolder(n); },
   GetTempName: function(){ return __ext().GetTempName(); },

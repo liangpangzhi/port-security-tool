@@ -18,7 +18,7 @@
 | 共享与服务 | 默认共享、SMBv1、NTLM、SMB 签名、IIS FTP 匿名；8 类危险服务的逐项开关与恢复；服务器模式按 IP 放行 |
 | IP 白名单 | SMB / FTP / 远程桌面等按来源 IP 放行，支持 CIDR |
 | 端口转发 | SMB 端口中转（服务端/客户端）、规则清理、SMB over QUIC 备用端口检测 |
-| 远程桌面 | 局域网发现（ARP + 3389 + 本工具代理三路探测）；直连或「需对方确认」的远程请求；被请求方仅对请求方 IP 临时放行 |
+| 远程桌面 | 已切换为内置 **SubnetDesk 客户端**：设备发现、画面控制、文件传输等由 SubnetDesk 提供；主程序单 exe 内嵌，首次点击自动解压启动；关闭远程桌面/PST 退出时会一并结束 SubnetDesk |
 | 数据采集 | 硬件、计算机名、端口封堵情况采集为 xlsx，推送至指定共享目录；定时或手动 |
 | 数据接口 | 标准 JSON 报文 HTTP 推送、本地查询服务、离线补发队列，便于二次开发服务端做汇总分析 |
 | 关于 | 版本、版权、运行环境、部署形态 |
@@ -28,7 +28,7 @@
 - **宿主**：C# WinForms（.NET 10，win-x64），内嵌 WebBrowser 渲染 HTML 界面。
 - **界面**：单文件 HTA 改造而来，`NativeApp/build_html.js` 将 HTA 转换为内嵌页 `ui.html`，并注入 `ActiveXObject → window.external` 兼容层。
 - **原生层**：注册表 / 进程 / 防火墙规则直读，替代 `wmic`、`tasklist`、`netsh show` 等外部命令（毫秒级）；服务启停走 SCM API，不依赖 `sc.exe`。
-- **零依赖发布**：`SelfContained + PublishSingleFile + ReadyToRun`，运行时不需预装 .NET，也不需要 VC++ 运行库；对外只依赖系统自带组件（mshtml、WMI、netsh、mstsc、schtasks）。
+- **零依赖发布**：`SelfContained + PublishSingleFile + ReadyToRun`，运行时不需预装 .NET，也不需要 VC++ 运行库；对外只依赖系统自带组件（mshtml、WMI、netsh、schtasks）。远程桌面由内嵌的 SubnetDesk 客户端提供，首次启动解压到 `%LOCALAPPDATA%\PortSecurityTool\remote`。
 
 ## 三、目录结构
 
@@ -46,7 +46,9 @@
    ├─ SystemIntegration.cs                  自启、窗口唤起
    ├─ Collector.cs / XlsxWriter.cs / WmiInfo.cs / SysInfo.cs   采集与表格生成
    ├─ ApiJson.cs / ApiReport.cs / ApiClient.cs / ApiServer.cs / ApiDoc.cs   数据接口
-   ├─ NetDiscovery.cs / RdpAgent.cs / RdpClient.cs              局域网发现与远程桌面
+   ├─ EmbeddedRemote.cs                                       内置 SubnetDesk 远程桌面（解压/启动）
+   ├─ NetDiscovery.cs / RdpAgent.cs / RdpClient.cs              旧远程桌面实现（保留，不再由界面启用）
+   ├─ subnetdesk-remote.zip                                   内嵌的 SubnetDesk 便携包
    ├─ build_html.js                         HTA → ui.html，注入兼容层
    ├─ app.manifest / app.ico                管理员清单与图标
    ├─ probe/                                界面自检探针（在真实 WebBrowser 宿主里执行 JS）
@@ -68,9 +70,10 @@
 cd NativeApp
 node build_html.js
 
-# 2) 自包含单文件发布
+# 2) 自包含单文件发布（内嵌 SubnetDesk）
 dotnet publish -c Release -r win-x64 --self-contained true \
-  -p:PublishSingleFile=true -p:PublishReadyToRun=true -p:DebugType=None
+  -p:PublishSingleFile=true -p:EmbedRemote=true \
+  -p:PublishReadyToRun=true -p:DebugType=None
 
 # 产物：NativeApp/bin/Release/net10.0-windows/win-x64/publish/PortSecurityTool.exe
 ```
@@ -87,7 +90,7 @@ cd NativeApp/apiprobe && dotnet build -c Release && ./bin/Release/net10.0-window
 
 - **HTTP 推送**：`POST` JSON 报文，带 `Authorization: Bearer`、`X-PST-Report-Id`（幂等键）；失败落盘待发队列，恢复后自动补发。
 - **本地查询服务**：默认 `127.0.0.1:18760`，仅监听回环，可配令牌；提供设备信息、端口状态、Schema、xlsx 报表下载。
-- **远程桌面代理**（可选）：默认 `TCP 18761`，供局域网内同类工具发现与发起「需确认」的远程请求。
+- **远程桌面**：旧版 `TCP 18761` 代理已停用；远程桌面统一由内置 SubnetDesk 客户端提供，不再由 PST 自身监听或放行 3389。
 
 ## 七、安全与合规
 

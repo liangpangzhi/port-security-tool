@@ -543,56 +543,18 @@ pre.console {
 
       <!-- ============ 远程桌面 ============ -->
       <div class="page" id="p-rdp">
-        <div class="page-head"><h2>局域网远程桌面</h2><p>扫描本网段主机，匹配可远程桌面的客户端；支持直接连接，也支持「需对方确认」的远程请求。</p></div>
+        <div class="page-head"><h2>远程桌面</h2><p>远程桌面已切换为 SubnetDesk 客户端，支持设备发现、画面控制、文件传输等能力。</p></div>
         <div class="grid">
-
           <div class="card w-lg">
-            <h3>局域网发现</h3>
-            <div class="row">
-              <input type="text" id="rdpCidr" placeholder="192.168.1.0/24 或 192.168.1.1-254" style="width:250px">
-              <button class="btn primary" onclick="rdpScan()">开始扫描</button>
-              <button class="btn ghost" onclick="rdpStop()">停止</button>
-              <span class="hint" id="rdpScanInfo" style="margin-left:4px">选择网段后开始扫描</span>
-            </div>
-            <div class="rscroll">
-              <table class="rtable" id="rdpTable">
-                <thead><tr>
-                  <th>计算机名</th><th>IP 地址</th><th>MAC</th><th>远程桌面</th><th>本工具</th><th>当前用户</th><th>操作</th>
-                </tr></thead>
-                <tbody id="rdpBody"><tr><td colspan="7" class="hint">尚未扫描</td></tr></tbody>
-              </table>
-            </div>
-          </div>
-
-          <div class="card w-md">
-            <h3>发起连接</h3>
-            <p>在列表里点「连接」，或在此填写地址直接发起。目标 3389 未开放时，用「远程请求」让对方确认后临时放行。</p>
-            <div class="field"><label>目标地址</label><input type="text" id="rdpIp" placeholder="例如 192.168.1.20"></div>
-            <div class="field"><label>用户名</label><input type="text" id="rdpUser" placeholder="域账号，可留空"></div>
-            <div class="field"><label>分辨率</label><input type="text" id="rdpW" value="1600" style="max-width:72px"><span class="hint">×</span><input type="text" id="rdpH" value="900" style="max-width:72px"></div>
-            <div class="field"><label>剪贴板</label><span class="switchwrap"><input type="checkbox" id="rdpClip" checked><span>与远端共享</span></span></div>
-            <div class="field"><label>磁盘映射</label><span class="switchwrap"><input type="checkbox" id="rdpDrives" checked><span>本机盘符可见</span></span></div>
+            <h3>SubnetDesk 远程桌面</h3>
+            <p>点击下方按钮启动内置的 SubnetDesk。首次启动会从主程序内置资源解压到本机用户目录，之后直接复用。</p>
+            <div class="field"><label>目标地址（可选）</label><input type="text" id="rdpIp" placeholder="例如 192.168.1.20；留空打开 SubnetDesk 首页"></div>
             <div class="row" style="margin-top:10px">
-              <button class="btn enable" onclick="rdpConnect()">发起远程桌面</button>
-              <button class="btn" onclick="rdpRequest()">远程请求</button>
+              <button class="btn primary" onclick="openSubnetDesk()">打开 SubnetDesk 远程桌面</button>
+              <button class="btn danger" onclick="closeSubnetDesk()">关闭 SubnetDesk</button>
             </div>
-            <p class="hint" id="rdpReqState" style="margin-top:9px">请求状态：—</p>
+            <p class="hint" id="rdpStatus" style="margin-top:9px">正在检测内置客户端…</p>
           </div>
-
-          <div class="card w-md">
-            <h3>响应远程请求（本机）</h3>
-            <p>开启后本机可被局域网内的管理端发现并请求远程桌面：需本机用户点「允许」才临时放行，且只放行请求方那一个 IP。</p>
-            <div class="field"><label>启用响应</label><span class="switchwrap"><input type="checkbox" id="rdpAgent"><span id="rdpAgentTip">未启用</span></span></div>
-            <div class="field"><label>监听端口</label><input type="text" id="rdpAgentPort" value="18761" style="max-width:96px"></div>
-            <div class="field"><label>访问令牌</label><input type="password" id="rdpToken" placeholder="与请求端保持一致"></div>
-            <div class="row" style="margin-top:10px">
-              <button class="btn primary" onclick="saveRdpAgent()">保存并应用</button>
-              <button class="btn danger" onclick="rdpRestoreLocal()">恢复 3389 封堵</button>
-            </div>
-            <p class="hint" id="rdpAgentState" style="margin-top:9px">服务状态：—</p>
-            <p class="hint">放行会临时移除 3389 的封堵规则（Windows 防火墙 block 优先于 allow），受控端可随时点「恢复 3389 封堵」还原。</p>
-          </div>
-
         </div>
       </div>
 
@@ -1038,175 +1000,61 @@ function setTrayMode(on){
 
 
 // ============================================================
-//  局域网远程桌面
+//  远程桌面（SubnetDesk）
 // ============================================================
-window.__rdpScanning = false;
-window.__rdpReqPending = false;
-
 function rdpInit(){
-  if (!hasNative("RdpCidrs")) {
-    $("rdpScanInfo").innerText = "仅 EXE 版支持局域网发现";
+  var el = $("rdpStatus");
+  if (!el) return;
+  el.innerText = hasNative("OpenSubnetDesk")
+    ? "远程桌面由同级 remote\\SubnetDesk 客户端提供。"
+    : "独立 HTA 模式：将从同级 remote\\SubnetDesk 启动 SubnetDesk。";
+}
+
+function openSubnetDesk(){
+  var ip = "";
+  try { ip = apiTrim($("rdpIp").value); } catch(e){}
+
+  if (hasNative("OpenSubnetDesk")) {
+    var r = apiSplit(wsh.OpenSubnetDesk(ip));
+    log(r[1], r[0] === "OK" ? "ok" : "err");
+    if (r[0] === "OK") $("rdpStatus").innerText = r[1];
     return;
   }
+
+  // 独立 HTA：直接启动同级的 remote\\SubnetDesk\\SubnetDesk.exe
   try {
-    if (!$("rdpCidr").value) {
-      var cs = String(wsh.RdpCidrs()).split("\u0001");
-      $("rdpCidr").value = cs[0] || "";
+    var base = "";
+    try { base = fso.GetParentFolderName(window.location.pathname); } catch(e){}
+    if (!base) base = fso.GetParentFolderName(fso.GetAbsolutePathName("."));
+    var exe = base + "\\remote\\SubnetDesk\\SubnetDesk.exe";
+    if (!fso.FileExists(exe)) {
+      log("未找到 " + exe + "，请确认 remote\\SubnetDesk 目录完整。", "err");
+      return;
     }
-  } catch(e){}
-  loadRdpSettings();
+    var cmd = '"' + exe + '"' + (ip ? ' --connect "' + ip + '"' : '');
+    wsh.Run(cmd, 1, false);
+    log("已启动 SubnetDesk 远程桌面" + (ip ? "：" + ip : ""), "ok");
+    $("rdpStatus").innerText = "已启动 SubnetDesk" + (ip ? "：" + ip : "");
+  } catch(e) {
+    log("启动 SubnetDesk 失败：" + e.message, "err");
+  }
 }
 
-function loadRdpSettings(){
-  if (!hasNative("GetRdpSettings")) return;
+function closeSubnetDesk(){
+  if (hasNative("CloseSubnetDesk")) {
+    var r = apiSplit(wsh.CloseSubnetDesk());
+    log(r[1], r[0] === "OK" ? "ok" : "err");
+    if (r[0] === "OK") $("rdpStatus").innerText = r[1];
+    return;
+  }
+  // 独立 HTA：按进程名结束
   try {
-    var a = String(wsh.GetRdpSettings()).split("\u0001");
-    $("rdpAgent").checked = (a[0] === "1");
-    $("rdpAgentTip").innerText = (a[0] === "1") ? "已启用" : "未启用";
-    $("rdpAgentPort").value = a[1] || "18761";
-    $("rdpToken").value = "";
-    $("rdpToken").placeholder = (a[2] === "1") ? "已设置，留空不修改" : "与请求端保持一致";
-    if (!$("rdpUser").value) $("rdpUser").value = a[6] || "";
-    if (!$("rdpW").value) $("rdpW").value = a[7] || "1600";
-    if (!$("rdpH").value) $("rdpH").value = a[8] || "900";
-    $("rdpClip").checked = (a[9] === "1");
-    $("rdpDrives").checked = (a[10] === "1");
-
-    var st = "服务状态：" + (a[11] === "1" ? "运行中，端口 " + a[1] : "未运行");
-    if (a[3]) st += "　已为 " + a[3] + " 临时放行" + (a[4] ? "（" + a[4] + "）" : "");
-    st += "　本机远程桌面：" + (a[5] === "1" ? "已开启" : "已关闭");
-    $("rdpAgentState").innerText = st;
-  } catch(e){}
-}
-
-function rdpScan(){
-  if (!hasNative("RdpScanStart")) { log("当前运行方式不支持局域网扫描（请使用 EXE 版）。", "warn"); return; }
-  var spec = apiTrim($("rdpCidr").value);
-  if (!spec) { log("请先填写网段，例如 192.168.1.0/24。", "warn"); return; }
-  var r = apiSplit(wsh.RdpScanStart(spec));
-  if (r[0] !== "OK") { log(r[1], "err"); return; }
-  log(r[1], "hd");
-  $("rdpBody").innerHTML = '<tr><td colspan="7" class="hint">扫描中…</td></tr>';
-  window.__rdpScanning = true;
-  rdpScanTick();
-}
-
-// 由宿主定时器驱动（WebBrowser 内核里 setTimeout 不触发）
-function rdpScanTick(){
-  if (!window.__rdpScanning) return;
-  var s = String(wsh.RdpScanState()).split("|");
-  $("rdpScanInfo").innerText = "进度 " + s[1] + "%　在线 " + s[2] + " 台　" + (s[3] || "");
-  renderRdpRows(String(wsh.RdpScanRows()));
-  if (s[0] !== "1") {
-    window.__rdpScanning = false;
-    log("扫描完成，" + s[2] + " 台主机在线。", "ok");
+    wsh.Run('taskkill /IM SubnetDesk.exe /F', 0, true);
+    log("已关闭 SubnetDesk。", "ok");
+    $("rdpStatus").innerText = "已关闭 SubnetDesk";
+  } catch(e) {
+    log("关闭 SubnetDesk 失败：" + e.message, "err");
   }
-}
-
-function rdpStop(){
-  try { if (hasNative("RdpScanStop")) wsh.RdpScanStop(); } catch(e){}
-  log("已请求停止扫描。", "warn");
-}
-
-function renderRdpRows(txt){
-  var rows = txt ? txt.split("\u0001") : [];
-  if (!rows.length || !rows[0]) {
-    $("rdpBody").innerHTML = '<tr><td colspan="7" class="hint">未发现在线主机</td></tr>';
-    return;
-  }
-  var html = "";
-  for (var i=0;i<rows.length;i++){
-    var c = rows[i].split("\t");
-    var ip = c[0], name = c[1] || "—", mac = c[2] || "—";
-    var canRdp = (c[3] === "1"), hasAgent = (c[4] === "1"), enabled = (c[5] === "1"), user = c[6] || "—";
-    var tag = canRdp ? '<span class="tag on">可连接</span>'
-            : (enabled ? '<span class="tag na">未监听</span>' : '<span class="tag off">已封堵</span>');
-    var ag = hasAgent ? '<span class="tag on">在线</span>' : '<span class="tag na">—</span>';
-    var ops = '<button class="btn sm enable" onclick="rdpPick(\'' + ip + '\',' + (canRdp ? "1" : "0") + ')">连接</button>';
-    if (hasAgent) ops += ' <button class="btn sm" onclick="rdpPickReq(\'' + ip + '\')">请求</button>';
-    html += '<tr><td>' + esc(name) + '</td>'
-          + '<td class="mono">' + esc(ip) + '</td>'
-          + '<td class="mono">' + esc(mac) + '</td>'
-          + '<td>' + tag + '</td><td>' + ag + '</td>'
-          + '<td>' + esc(user) + '</td><td>' + ops + '</td></tr>';
-  }
-  $("rdpBody").innerHTML = html;
-}
-
-function rdpPick(ip, canDirect){
-  $("rdpIp").value = ip;
-  if (canDirect === 1) rdpConnect();
-  else log("该主机 3389 未开放：可点「请求」，由对方确认后临时放行。", "warn");
-}
-
-function rdpPickReq(ip){
-  $("rdpIp").value = ip;
-  rdpRequest();
-}
-
-function rdpConnect(){
-  if (!hasNative("RdpConnect")) { log("当前运行方式不支持发起连接（请使用 EXE 版）。", "warn"); return; }
-  var ip = apiTrim($("rdpIp").value);
-  if (!ip) { log("请填写目标地址。", "warn"); return; }
-  var w = parseInt(apiTrim($("rdpW").value), 10); if (isNaN(w) || w < 800) w = 1600;
-  var h = parseInt(apiTrim($("rdpH").value), 10); if (isNaN(h) || h < 600) h = 900;
-  var r = apiSplit(wsh.RdpConnect(ip, apiTrim($("rdpUser").value), $("rdpClip").checked, $("rdpDrives").checked, w, h));
-  log(r[1], r[0] === "OK" ? "ok" : "err");
-}
-
-function rdpRequest(){
-  if (!hasNative("RdpRequest")) { log("当前运行方式不支持远程请求（请使用 EXE 版）。", "warn"); return; }
-  var ip = apiTrim($("rdpIp").value);
-  if (!ip) { log("请填写目标地址。", "warn"); return; }
-  var r = apiSplit(wsh.RdpRequest(ip));
-  log(r[1], r[0] === "OK" ? "hd" : "err");
-  if (r[0] !== "OK") return;
-  window.__rdpReqPending = true;
-  $("rdpReqState").innerText = "请求状态：等待 " + ip + " 确认…";
-}
-
-function rdpReqTick(){
-  if (!window.__rdpReqPending) return;
-  var s = String(wsh.RdpReqState()).split("|");
-  var code = s[0], msg = s[1] || "";
-  if (code === "1") {
-    $("rdpReqState").innerText = "请求状态：等待 " + msg + " 确认…";
-    return;
-  }
-  window.__rdpReqPending = false;
-  if (code === "2") {
-    $("rdpReqState").innerText = "请求状态：对方已允许 —— " + msg;
-    log("目标已允许：" + msg + "，正在发起远程桌面…", "ok");
-    rdpConnect();
-  } else if (code === "3") {
-    $("rdpReqState").innerText = "请求状态：失败 —— " + msg;
-    log("远程请求失败：" + msg, "err");
-  } else {
-    $("rdpReqState").innerText = "请求状态：—";
-  }
-}
-
-// 宿主节拍入口：扫描与请求共用
-function rdpTick(){
-  if (window.__rdpScanning) rdpScanTick();
-  if (window.__rdpReqPending) rdpReqTick();
-}
-
-function saveRdpAgent(){
-  if (!hasNative("SaveRdpConfig")) { log("当前运行方式不支持远程请求响应（请使用 EXE 版）。", "warn"); return; }
-  var port = parseInt(apiTrim($("rdpAgentPort").value), 10);
-  if (isNaN(port)) port = 18761;
-  var r = apiSplit(wsh.SaveRdpConfig($("rdpAgent").checked, port, $("rdpToken").value));
-  log(r[1], r[0] === "OK" ? "ok" : "err");
-  $("rdpToken").value = "";
-  loadRdpSettings();
-}
-
-function rdpRestoreLocal(){
-  if (!hasNative("RdpRestoreLocal")) { log("当前运行方式不支持该操作（请使用 EXE 版）。", "warn"); return; }
-  var r = apiSplit(wsh.RdpRestoreLocal());
-  log(r[1], r[0] === "OK" ? "ok" : "err");
-  loadRdpSettings();
 }
 
 // 「关于」页：写入版本 / 构建 / 运行环境信息

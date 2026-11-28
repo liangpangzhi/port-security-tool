@@ -49,7 +49,6 @@ namespace PortSecurityTool
                 Math.Max(0, (Screen.PrimaryScreen.Bounds.Height - h) / 2));
 
             _bridge = new Bridge(this);
-            RdpAgent.AttachForm(this);
             _browser = new WebBrowser
             {
                 Dock = DockStyle.Fill,
@@ -74,7 +73,6 @@ namespace PortSecurityTool
         private void InitApiServer()
         {
             try { if (ApiServer.Enabled) ApiServer.Start(); } catch { }
-            try { RdpAgent.ApplyConfig(); } catch { }
             try
             {
                 Task.Run(delegate
@@ -123,6 +121,7 @@ namespace PortSecurityTool
 
         public void HideToTray()
         {
+            try { EmbeddedRemote.CloseAll(); } catch { }
             try
             {
                 Hide();
@@ -148,9 +147,9 @@ namespace PortSecurityTool
         public void RealExit()
         {
             _reallyExit = true;
+            try { EmbeddedRemote.CloseAll(); } catch { }
             try { if (_autoTimer != null) _autoTimer.Stop(); } catch { }
             try { ApiServer.Stop(); } catch { }
-            try { RdpAgent.Stop(); } catch { }
             try
             {
                 if (_tray != null)
@@ -365,6 +364,16 @@ namespace PortSecurityTool
 
         private static string LoadEmbeddedHtml()
         {
+            // 目录版优先加载 exe 同级 ui.html，便于直接改 HTA/界面后免重编译；
+            // 找不到外部文件时回退到编译进程序集的 ui.html。
+            try
+            {
+                string external = Path.Combine(AppContext.BaseDirectory, "ui.html");
+                if (File.Exists(external))
+                    return File.ReadAllText(external, Encoding.UTF8);
+            }
+            catch { }
+
             var asm = Assembly.GetExecutingAssembly();
             using (var stream = asm.GetManifestResourceStream("PortSecurityTool.ui.html"))
             {

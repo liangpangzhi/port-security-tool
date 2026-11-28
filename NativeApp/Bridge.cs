@@ -501,7 +501,22 @@ namespace PortSecurityTool
             catch { }
         }
 
-        // ---------- 局域网远程桌面 ----------
+        // ---------- 远程桌面（SubnetDesk） ----------
+        /// <summary>启动内置的 SubnetDesk 远程桌面；target 为空则打开首页。</summary>
+        public string OpenSubnetDesk(string target)
+        {
+            try { return EmbeddedRemote.Open(target); }
+            catch (Exception ex) { return "ERR|" + ex.Message; }
+        }
+
+        /// <summary>关闭由本工具启动的 SubnetDesk 进程。</summary>
+        public string CloseSubnetDesk()
+        {
+            try { return EmbeddedRemote.CloseAll(); }
+            catch (Exception ex) { return "ERR|" + ex.Message; }
+        }
+
+        // ---------- 局域网远程桌面（旧实现，保留但不再由界面调用） ----------
         /// <summary>本机网段，首个为默认（\u0001 分隔）。</summary>
         public string RdpCidrs()
         {

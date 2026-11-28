@@ -30,6 +30,8 @@
     <ApplicationIcon>app.ico</ApplicationIcon>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
+    <!-- true=把 SubnetDesk 打进 exe；false=目录版，从 remote\SubnetDesk 启动 -->
+    <EmbedRemote Condition="'$(EmbedRemote)' == ''">true</EmbedRemote>
   </PropertyGroup>
   <ItemGroup>
     <AssemblyMetadata Include="BuildDate" Value="$([System.DateTime]::Now.ToString('yyyy-MM-dd'))" />
@@ -39,6 +41,7 @@
     <EmbeddedResource Include="ui.html" />
     <EmbeddedResource Include="ApiDoc.md" />
     <EmbeddedResource Include="app.ico" />
+    <EmbeddedResource Include="subnetdesk-remote.zip" LogicalName="PortSecurityTool.subnetdesk-remote.zip" Condition="'$(EmbedRemote)' == 'true'" />
     <Compile Remove="clicktest/**/*.cs" />
     <Compile Remove="probe/**/*.cs" />
     <Compile Remove="apiprobe/**/*.cs" />
