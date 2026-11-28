@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>内网终端安全基线管控与数据汇聚平台 项目介绍</title>
+<style>
+  @page { size: A4; margin: 16mm 14mm; }
+  * { box-sizing: border-box; }
+  body {
+    font-family: "Microsoft YaHei", "PingFang SC", "Source Han Sans SC", sans-serif;
+    color: #1a2430; line-height: 1.75; font-size: 10.5pt; margin: 0;
+  }
+  .cover {
+    border: 1px solid #d8dee6; border-radius: 6px; padding: 26px 28px; margin-bottom: 20px;
+    background: linear-gradient(135deg, #f6f9fc 0%, #ffffff 60%);
+  }
+  .cover .kicker { letter-spacing: 4px; color: #2f6ea8; font-size: 10pt; font-weight: 700; }
+  .cover h1 { font-size: 22pt; margin: 10px 0 4px; color: #12324e; line-height: 1.35; }
+  .cover h2 { font-size: 12.5pt; font-weight: 500; color: #4a6b86; margin: 0 0 18px; }
+  .meta { width: 100%; border-collapse: collapse; font-size: 10pt; }
+  .meta td { border: 1px solid #dfe6ee; padding: 7px 10px; }
+  .meta td:first-child { background: #f3f7fb; width: 88px; color: #2f6ea8; font-weight: 700; text-align: center; }
+  h3.sec {
+    font-size: 13pt; color: #12324e; margin: 22px 0 10px; padding: 0 0 7px 10px;
+    border-left: 5px solid #2f6ea8; border-bottom: 1px solid #e3eaf2;
+  }
+  h4.sub { font-size: 11pt; color: #1d4f7c; margin: 14px 0 6px; }
+  p { margin: 7px 0; text-align: justify; }
+  ul, ol { margin: 7px 0 7px 20px; padding: 0; }
+  li { margin: 3px 0; }
+  table.grid { width: 100%; border-collapse: collapse; margin: 10px 0; font-size: 9.5pt; }
+  table.grid th, table.grid td { border: 1px solid #dfe6ee; padding: 6px 8px; vertical-align: top; }
+  table.grid th { background: #eef4fa; color: #1d4f7c; text-align: left; }
+  table.grid td.num { text-align: center; }
+  .figure { margin: 14px 0 16px; page-break-inside: avoid; }
+  .figure img { width: 100%; border: 1px solid #cfd8e3; border-radius: 4px; display: block; }
+  .figure figcaption { font-size: 9pt; color: #5c7089; text-align: center; margin-top: 6px; }
+  .note { background: #fff8e8; border: 1px solid #f0dfae; border-radius: 4px; padding: 9px 12px; font-size: 9.5pt; margin: 10px 0; }
+  .note b { color: #9a6b12; }
+  .arch { background: #f7fafd; border: 1px solid #dbe5ef; border-radius: 6px; padding: 14px 16px; margin: 12px 0; font-size: 9.5pt; }
+  .arch .layer { display: flex; align-items: stretch; margin-bottom: 8px; }
+  .arch .layer:last-child { margin-bottom: 0; }
+  .arch .lbl { width: 96px; flex: none; background: #12324e; color: #fff; font-weight: 700; display: flex; align-items: center; justify-content: center; border-radius: 4px 0 0 4px; padding: 8px 4px; text-align: center; }
+  .arch .box { flex: 1; background: #fff; border: 1px solid #cfdcea; border-left: none; border-radius: 0 4px 4px 0; padding: 8px 12px; }
+  .arch .box b { color: #1d4f7c; }
+  .arch .flow { text-align: center; color: #7a93ab; font-size: 9pt; margin: 2px 0 4px 96px; }
+  .tag { display: inline-block; background: #e8f1f9; color: #1d4f7c; border-radius: 3px; padding: 1px 7px; font-size: 9pt; margin-right: 6px; }
+  .foot { margin-top: 24px; border-top: 1px solid #dfe6ee; padding-top: 8px; font-size: 8.5pt; color: #7a8da0; display: flex; justify-content: space-between; }
+  .kvline strong { color: #1d4f7c; }
+  .pb { page-break-before: always; }
+</style>
+</head>
+<body>
+
+<div class="cover">
+  <div class="kicker">企 业 内 部 技 术 创 新 项 目 申 报</div>
+  <h1>内网终端安全基线管控与数据汇聚平台</h1>
+  <h2>——「一键体检 + 一键加固 + 自动巡检 + 数据大屏」一体化自研终端安全工具</h2>
+  <table class="meta">
+    <tr><td>项目名称</td><td>内网终端安全基线管控与数据汇聚平台（网络信息采集和端口管理工具）</td>
+        <td>项目类别</td><td>技术改造 / 自研工具类</td></tr>
+    <tr><td>申报单位</td><td>设备信息科</td>
+        <td>负责人</td><td>（填写人姓名 / 工号）</td></tr>
+    <tr><td>参与人员</td><td>（填写成员名单）</td>
+        <td>完成时间</td><td>2026 年 11 月</td></tr>
+    <tr><td>适用范围</td><td colspan="3">单位内网办公终端、服务器、专用设备（Windows 10 / Windows 11 / Windows Server，64 位）</td></tr>
+    <tr><td>一句话简介</td><td colspan="3">把「终端安全自查、漏洞封堵、整改跟踪、数据汇总」四件事从人工搬运变成自动执行，一台终端装上即用，管理员在一块大屏上看到全网暴露面。</td></tr>
+  </table>
+</div>
+
+<h3 class="sec">一、项目背景与要解决的实际问题</h3>
+<p>单位内网终端数量多、分布散、操作系统与业务软件版本不一，长期依靠"人工巡检 + 表格汇总 + 逐台整改"的方式开展安全自查，存在四个突出痛点：</p>
+<ol>
+  <li><b>查不全</b>：84 个高危端口的封堵状态、主机名、硬件序列号、登录用户等信息散落在各台机器上，靠人工记录既慢又容易漏项。</li>
+  <li><b>改不快</b>：发现 SMB、NetBIOS、RDP 等端口对内网开放后，仍需逐台登录、逐个手动调整，处置周期长。</li>
+  <li><b>看不清</b>：整改结果汇总成 Excel 再人工统计，无法实时掌握"全网还有多少台暴露、暴露在哪个端口、风险有多高"。</li>
+  <li><b>推不动</b>：依赖"目标机器能主动访问中心服务器"的老办法，在无出网权限、跨网段、终端不主动外联的终端环境里直接失效，数据长期收不回来。</li>
+</ol>
+<div class="note"><b>一句话概括痛点：</b>不是"没有工具"，而是"工具只能在理想网络条件下用，且查完之后的汇总仍靠人"。</div>
+
+<h3 class="sec">二、项目目标与总体设计</h3>
+<p>本项目围绕"摸清家底 → 快速整改 → 自动跟踪 → 数据可视"闭环，自主研发了一套<b>终端侧 + 服务端</b>双端工具，目标是：<b>终端零配置即用、服务端零依赖即部署、整改结果自动回流、管理员一块屏掌握全局</b>。</p>
+
+<h4 class="sub">2.1 总体架构</h4>
+<div class="arch">
+  <div class="layer"><div class="lbl">终端层</div><div class="box">
+    <b>网络信息采集和端口管理工具</b>（单文件 EXE，管理员权限）<br>
+    ① 安全总览与高危端口体检　② 5 套预置封堵策略 / 一键全量加固　③ 共享与服务加固　④ IP 白名单　⑤ 端口转发（445→10001）　⑥ 受控远程桌面（SubnetDesk 内嵌）
+  </div></div>
+  <div class="flow">↓ 采集快照（本机缓存，间隔自动刷新）</div>
+  <div class="layer"><div class="lbl">发现层</div><div class="box">
+    <b>局域网代理</b>：UDP 18762 广播身份（PST-DISCOVER-V1）、TCP 18762 只读拉取接口（/pst/v1/device），启动即自动放行防火墙入站规则
+  </div></div>
+  <div class="flow">↓ 服务端主动扫描发现 → 主动拉取（终端无需外联，跨网段可用单播探测）</div>
+  <div class="layer"><div class="lbl">服务端层</div><div class="box">
+    <b>PST 终端安全运营中心</b>（Node 22 单文件 EXE / 零外部依赖 / 内置 SQLite）<br>
+    三路并行扫描发现 → 定时拉取入库 → 主机与快照建模 → 汇总统计与离线判定
+  </div></div>
+  <div class="flow">↓ 只读接口（JSON）</div>
+  <div class="layer"><div class="lbl">展示层</div><div class="box">
+    <b>数据大屏</b>：终端态势总览、风险分布、24 小时采集趋势、暴露端口 TOP、主机清单、单机详情（84 端口暴露矩阵 + 采集历史）、客户端发现与拉取模块、系统设置
+  </div></div>
+</div>
+
+<h4 class="sub">2.2 关键设计取舍：把"客户端上报"改成"服务端主动拉取"</h4>
+<p>初版设计沿用"终端定时把数据 POST 到中心"的思路，在真实内网测试时暴露出致命问题：<b>只要终端没有到中心的网络路径、或中间设备拦截了出站，数据就永远收不到</b>。为此项目组重新梳理了数据链路，把通道改为<b>服务端主动发现 + 主动拉取</b>：</p>
+<ul>
+  <li>终端侧不再外联、不再依赖中心地址，<b>默认开启</b>局域网代理并在启动时自动添加入站放行规则；</li>
+  <li>服务端发现采用<b>三路并行</b>：UDP 全局广播 + 各网卡定向广播、网段内逐地址 UDP 单播探测、TCP 18762 端口探测（免令牌 ping），任一路命中即视为发现；</li>
+  <li>跨网段场景可在扫描框直接指定网段（如 192.168.1.0/24），不依赖广播转发；</li>
+  <li>令牌双向一致校验，服务端拉取接口带令牌，终端未配置令牌时也可免令牌拉取，方便快速试点。</li>
+</ul>
+<p>改造后，单次全网扫描稳定在 <b>2.2 秒</b>量级完成（原先依赖广播时经常"扫不到"），定时拉取保证数据新鲜度，解决了内网环境下数据"收不回来"的老问题。</p>
+
+<h3 class="sec">三、主要创新点</h3>
+<table class="grid">
+  <tr><th style="width:76px">序号</th><th style="width:150px">创新点</th><th>技术做法与价值</th><th style="width:92px">类型</th></tr>
+  <tr><td class="num">1</td><td><b>三路并行局域网发现</b></td><td>UDP 广播 + UDP 单播 + TCP 端口探测同时进行，规避广播被交换机/防火墙拦截、跨网段广播不通两大顽疾；无需安装任何客户端插件即可发现。</td><td>架构</td></tr>
+  <tr><td class="num">2</td><td><b>单向拉取数据模型</b></td><td>终端只开放只读拉取接口，服务端定时主动取数；终端不外联、不暴露写接口，符合内网最小暴露原则；服务端取消接收通道后攻击面进一步收敛。</td><td>架构</td></tr>
+  <tr><td class="num">3</td><td><b>零依赖单文件交付</b></td><td>客户端 90.7 MB 自包含 EXE（含 .NET 运行时），服务端 57.7 MB 单 EXE（内置 SQLite）；目标机无需预装 .NET、Node、VC++ 运行库，双击即用、免安装、免运维。</td><td>工程</td></tr>
+  <tr><td class="num">4</td><td><b>84 端口策略化封堵</b></td><td>把散落的加固动作沉淀为 5 套场景化策略（防勒索加固、远程入口封堵、弱服务收敛、数据库暴露面收敛、一键全量），终端一键执行、界面逐条可回滚，避免"改不回去"。</td><td>业务</td></tr>
+  <tr><td class="num">5</td><td><b>风险量化与闭环看板</b></td><td>按暴露端口、严重暴露数、封堵率自动生成 0–100 风险分与高/中/低三档等级，大屏与单机详情同口径呈现，支撑"整改前—整改后"对比与趋势追踪。</td><td>业务</td></tr>
+  <tr><td class="num">6</td><td><b>内置受控远程桌面</b></td><td>内嵌 SubnetDesk 便携包实现远程协助，且必须由被控端本机用户人工确认、仅对请求方单个 IP 临时放行，用完即恢复，杜绝"为了方便"长期开 3389。</td><td>安全</td></tr>
+  <tr><td class="num">7</td><td><b>自检机制保障可维护</b></td><td>内置功能自检程序（29 项断言，覆盖契约生成、局域网发现、令牌鉴权、远程桌面放行/还原、实例互斥）与界面自检探针，改完即回归，工具自身可验证。</td><td>工程</td></tr>
+</table>
+
+<h3 class="sec">四、功能演示（关键界面）</h3>
+
+<div class="figure">
+  <img src="截图/04-客户端-安全总览.png" alt="客户端安全总览">
+  <figcaption>图 1　客户端：安全总览——管理状态、防火墙状态、监听端口、高危端口暴露数，一键封堵入口</figcaption>
+</div>
+
+<div class="figure">
+  <img src="截图/06-客户端-预置封堵.png" alt="客户端预置封堵">
+  <figcaption>图 2　客户端：预置高危漏洞封堵——场景化策略与一键全量加固，支持逐条恢复</figcaption>
+</div>
+
+<div class="figure">
+  <img src="截图/05-客户端-数据上传.png" alt="客户端数据上传">
+  <figcaption>图 3　客户端：数据上传——自动上传间隔 + 局域网发现（供服务端扫描）双卡片，端口与令牌可视化</figcaption>
+</div>
+
+<div class="figure">
+  <img src="截图/01-大屏首页.png" alt="大屏首页">
+  <figcaption>图 4　服务端数据大屏：终端态势总览、风险分布、24 小时采集趋势、暴露端口 TOP、主机清单</figcaption>
+</div>
+
+<div class="figure">
+  <img src="截图/02-客户端发现与拉取.png" alt="客户端发现与拉取">
+  <figcaption>图 5　服务端「客户端发现与拉取」模块：一键扫描、立即拉取、定时拉取与端口/令牌设置集中于一处</figcaption>
+</div>
+
+<div class="figure">
+  <img src="截图/07-单机详情.png" alt="单机详情">
+  <figcaption>图 6　服务端单机详情：84 端口暴露矩阵、设备信息与采集历史趋势</figcaption>
+</div>
+
+<div class="figure">
+  <img src="截图/03-系统设置.png" alt="系统设置">
+  <figcaption>图 7　服务端系统设置：监听地址、对外访问地址、大屏令牌、离线判定阈值</figcaption>
+</div>
+
+<h3 class="sec">五、量化指标与实施效果</h3>
+<table class="grid">
+  <tr><th style="width:190px">指标</th><th style="width:150px">项目值</th><th>说明</th></tr>
+  <tr><td>终端采集项</td><td>38 项</td><td>主机名、登录用户、域、整机 SN、操作系统与版本、CPU 型号/核心/频率、内存条数与容量、主板与 BIOS、磁盘与分区、网卡 MAC 与 IP，以及 84 个高危端口的逐端口封堵状态。</td></tr>
+  <tr><td>高危端口覆盖</td><td>84 个</td><td>与行业通行高危端口清单对齐，逐端口展示"已封堵 / 未封堵"，并按严重程度标记严重暴露项。</td></tr>
+  <tr><td>单次全网扫描耗时</td><td>约 2.2 秒</td><td>三路并行发现，本机实测含 508 个地址网段探测；改造前依赖广播时经常无法发现客户端。</td></tr>
+  <tr><td>端到端数据时延</td><td>≤ 采集间隔</td><td>客户端按间隔自动刷新本机快照，服务端定时拉取即取即用，大屏数据不依赖人工上传。</td></tr>
+  <tr><td>单台终端巡检耗时</td><td>由 30 分钟级降至秒级</td><td>过去需登录终端逐项核对端口与硬件信息，现为终端启动即自检、服务端自动回传，人工仅需复核异常项。</td></tr>
+  <tr><td>部署成本</td><td>零采购成本</td><td>全部自研，服务端零外部依赖单 EXE，终端零安装依赖单 EXE，无需服务器中间件与数据库授权。</td></tr>
+  <tr><td>自检通过率</td><td>29 / 29 项</td><td>功能自检程序全项通过：报文契约字段一致性、局域网发现应答、拉取接口令牌鉴权、远程桌面放行与还原、实例互斥释放。</td></tr>
+  <tr><td>可回滚性</td><td>100%</td><td>封堵、共享、服务、远程桌面等全部动作均提供"恢复"按钮与一键还原路径，不产生不可逆变更。</td></tr>
+</table>
+
+<h3 class="sec">六、效益分析</h3>
+<h4 class="sub">6.1 管理效益</h4>
+<ul>
+  <li>把"季度人工抽查"变成"日常自动巡检"：管理员每天在屏幕上即可看到全网暴露面与离线主机，异常项自动置顶。</li>
+  <li>统一口径替代多头统计：终端、科室、大屏三处数据同源同构，报表不再需要二次加工，避免口径不一致导致的重复核对。</li>
+  <li>整改过程可追溯：单机详情保留历次采集快照与风险分变化，印证"封堵前—封堵后"整改效果，支撑安全考核与责任落实。</li>
+</ul>
+<h4 class="sub">6.2 安全效益</h4>
+<ul>
+  <li>84 个高危端口逐端口可见，从"装过补丁就算合规"转为"逐端口可验证"，显著压缩 SMB、NetBIOS、数据库、远程桌面等入口暴露面。</li>
+  <li>远程桌面等高风险能力一律"用完即还原"，杜绝长期开放管理端口形成新的攻击面。</li>
+  <li>数据链路改为服务端主动拉取后，终端不再需要出网权限，也不再存在对外暴露的写入接口，横向移动风险降低。</li>
+</ul>
+<h4 class="sub">6.3 经济效益</h4>
+<ul>
+  <li>零采购：不需要商用终端管控软件、服务器数据库或中间件授权，也不占用额外服务器资源（单进程 + 单文件 SQLite）。</li>
+  <li>人力替代：以 200 台终端、年 4 轮巡检估算，仅"逐台核对端口与设备信息"一项即可替代约 <b>400 人时</b>的人工投入（按 30 分钟/台计），人力可转向分析研判。</li>
+  <li>复用现有资产：远程桌面复用内嵌 SubnetDesk 便携包，不额外采购第三方远程工具。</li>
+</ul>
+<h4 class="sub">6.4 推广价值</h4>
+<ul>
+  <li>工具已沉淀为<b>可复用的交付形态</b>：源码 + 单文件成品 + 使用文档 + 自检程序，可直接复制到其他科室、段（局）乃至上级单位。</li>
+  <li>数据契约（<span class="tag">port-security-tool.device-report / v1.0</span>）公开、字段只增不改，可平滑接入单位既有安全平台或数据中台。</li>
+  <li>支持"发现端口 + 拉取令牌 + 网段指定"三项可配置，适配多网段、多安全域并存的复杂内网环境。</li>
+</ul>
+
+<h3 class="sec">七、后续规划</h3>
+<table class="grid">
+  <tr><th style="width:70px">阶段</th><th style="width:150px">目标</th><th>主要内容</th></tr>
+  <tr><td class="num">近期</td><td>扩大覆盖 + 闭环整改</td><td>全网终端批量分发安装；大屏增加"整改工单"视角，把未封堵端口按科室派发并跟踪销号；补齐异常告警（新增暴露端口、主机长时间离线）。</td></tr>
+  <tr><td class="num">中期</td><td>基线度量与对标</td><td>按单位、科室、机型输出封堵率与风险分排行，形成横向对标；沉淀"基线配置"下发能力，由服务端统一下发策略模板，终端一键对齐。</td></tr>
+  <tr><td class="num">远期</td><td>平台化对接</td><td>与单位既有资产台账、日志审计、态势感知平台对接；数据契约扩展软件版本、补丁、杀毒等采集项，形成终端统一画像。</td></tr>
+</table>
+
+<h3 class="sec">八、技术特点与自主性说明</h3>
+<ul>
+  <li><b>完全自主开发</b>：客户端（C# / .NET + WinForms + WebBrowser 混合宿主）与服务端（Node.js + 内置 SQLite + 原生前端）全部为本部门自研，无第三方商业组件与闭源 SDK。</li>
+  <li><b>零外部依赖</b>：服务端不依赖任何 npm 运行期库（SQLite 由 Node 内置模块提供），客户端不依赖目标机 .NET 运行时与 VC++ 运行库，便于在老旧终端上推广。</li>
+  <li><b>数据契约稳定</b>：报文结构以 JSON Schema 固化并随工具提供，字段只增不改，服务端可长期解析。</li>
+  <li><b>安全合规</b>：仅在本单位内网使用，所有加固动作可回滚，采集数据（主机名、序列号、MAC、登录用户）按内部数据分级要求存储与使用；对外场景须先做脱敏处理。</li>
+</ul>
+<div class="note"><b>关于文中截图：</b>截图取自单位内部真实运行界面（含主机名、IP、序列号、MAC、设备 ID 等），仅用于内部申报材料；如需对外发布或跨单位共享，须先对上述字段做脱敏。</div>
+
+<h3 class="sec">九、附件清单</h3>
+<table class="grid">
+  <tr><th style="width:70px">序号</th><th>材料</th><th style="width:120px">存放位置</th></tr>
+  <tr><td class="num">1</td><td>客户端成品：网络信息采集和端口管理工具_v1.0_SubnetDesk.exe（90.7 MB，免安装）</td><td>dist/</td></tr>
+  <tr><td class="num">2</td><td>服务端成品：PST-SecurityConsole.exe（57.7 MB，免安装）</td><td>ServerApp/dist/</td></tr>
+  <tr><td class="num">3</td><td>客户端源代码与界面源文件（HTA）</td><td>NativeApp/、根目录 .hta</td></tr>
+  <tr><td class="num">4</td><td>服务端源代码与数据大屏前端</td><td>ServerApp/</td></tr>
+  <tr><td class="num">5</td><td>数据接口说明、JSON Schema、脱敏报文示例</td><td>API接口文档_v1.0/</td></tr>
+  <tr><td class="num">6</td><td>功能自检程序与界面自检探针</td><td>NativeApp/apiprobe/、NativeApp/probe/</td></tr>
+  <tr><td class="num">7</td><td>部署与使用说明</td><td>README.md、ServerApp/README.md</td></tr>
+  <tr><td class="num">8</td><td>本项目介绍与界面截图</td><td>项目介绍/</td></tr>
+</table>
+
+<div class="foot">
+  <span>内网终端安全基线管控与数据汇聚平台 · 项目介绍材料</span>
+  <span>设备信息科 · 2026 年 11 月</span>
+</div>
+
+</body>
+</html>
