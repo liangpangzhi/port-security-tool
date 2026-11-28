@@ -1,0 +1,14 @@
+{
+  "name": "pst-security-console",
+  "version": "1.0.0",
+  "private": true,
+  "description": "PST 终端安全运营中心 - 数据接收与可视化大屏",
+  "main": "server.js",
+  "scripts": {
+    "start": "node --no-warnings server.js",
+    "seed": "node --no-warnings test/seed.js"
+  },
+  "engines": {
+    "node": ">=22.5"
+  }
+}

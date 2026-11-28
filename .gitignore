@@ -11,6 +11,11 @@ build/
 # 成品 exe 通过 GitHub Releases 分发，不进 Git 历史
 dist/*.exe
 
+# ---- 服务端运行数据 ----
+ServerApp/data/*.db
+ServerApp/data/*.db-wal
+ServerApp/data/*.db-shm
+
 # ---- 中间文件 ----
 NativeApp/ui.html.tmp
 NativeApp/_check.js

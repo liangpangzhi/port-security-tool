@@ -36,8 +36,13 @@
 .
 ├─ 网络信息采集和端口管理工具_v1.0_GUI.hta   界面与业务逻辑源文件（单文件 HTA）
 ├─ dist/
-│  ├─ 网络信息采集和端口管理工具_v1.0.exe    成品（自包含单文件，管理员运行）
+│  ├─ 网络信息采集和端口管理工具_v1.0_SubnetDesk.exe   成品（自包含单文件，管理员运行）
 │  └─ 网络信息采集和端口管理工具_v1.0_GUI.hta
+├─ ServerApp/                               服务端 + 数据大屏（Node 22）
+│  ├─ server.js                             HTTP 接收、SQLite 落库、汇总接口
+│  ├─ public/                               数据大屏前端（HTML/CSS/JS）
+│  ├─ test/seed.js                          演示数据
+│  └─ config.json                           端口 / 上报令牌 / 大屏令牌
 ├─ API接口文档_v1.0/                        数据接口说明 / JSON Schema / 脱敏报文示例
 └─ NativeApp/                               C# 宿主与原生能力
    ├─ Program.cs / MainForm.cs              入口、窗体、托盘、单实例、定时采集
@@ -91,6 +96,22 @@ cd NativeApp/apiprobe && dotnet build -c Release && ./bin/Release/net10.0-window
 - **HTTP 推送**：`POST` JSON 报文，带 `Authorization: Bearer`、`X-PST-Report-Id`（幂等键）；失败落盘待发队列，恢复后自动补发。
 - **本地查询服务**：默认 `127.0.0.1:18760`，仅监听回环，可配令牌；提供设备信息、端口状态、Schema、xlsx 报表下载。
 - **远程桌面**：旧版 `TCP 18761` 代理已停用；远程桌面统一由内置 SubnetDesk 客户端提供，不再由 PST 自身监听或放行 3389。
+
+### 服务端与数据大屏（ServerApp）
+
+`ServerApp/` 是配套的零依赖 Node.js 服务端，接收客户端自动上报并落库 SQLite，
+提供数据大屏：首页汇总、风险分布、24 小时趋势、暴露端口 TOP、主机清单和单机详情。
+
+```bash
+cd ServerApp
+node --no-warnings server.js     # 或双击 start.bat
+```
+
+- 大屏：`http://<服务器IP>:8080/`
+- 上报接口：`POST http://<服务器IP>:8080/api/v1/reports`
+- 客户端「数据接口」填上面的地址和 `ingestToken`，测试推送返回 2xx 即接通
+- 演示数据：`node test/seed.js`（或 `seed.bat`）
+- 详细配置、接口和安全建议见 `ServerApp/README.md`
 
 ## 七、安全与合规
 

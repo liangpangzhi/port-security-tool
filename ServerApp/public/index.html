@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PST 终端安全运营中心</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div class="bg-grid"></div>
+
+  <header class="topbar">
+    <div class="brand">
+      <div class="logo" aria-hidden="true">
+        <svg viewBox="0 0 48 48" width="40" height="40">
+          <defs>
+            <linearGradient id="lg" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stop-color="#22d3ee"/>
+              <stop offset="1" stop-color="#3b82f6"/>
+            </linearGradient>
+          </defs>
+          <path d="M24 4 40 10v12c0 10-6.8 18.2-16 22C14.8 40.2 8 32 8 22V10z"
+                fill="none" stroke="url(#lg)" stroke-width="2.2"/>
+          <path d="M16.5 23.5 21.5 28.5 32 17.5" fill="none" stroke="#22d3ee"
+                stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <div class="brand-text">
+        <h1>PST 终端安全运营中心</h1>
+        <div class="sub">PORT SECURITY OPERATIONS · LIVE DATA WALL</div>
+      </div>
+    </div>
+
+    <div class="top-right">
+      <div class="chip"><span class="chip-dot ok"></span>在线 <b id="chipOnline">—</b></div>
+      <div class="chip"><span class="chip-dot bad"></span>离线 <b id="chipOffline">—</b></div>
+      <div class="chip"><span class="chip-dot warn"></span>高危 <b id="chipHigh">—</b></div>
+      <div class="clock" id="clock">--:--:--</div>
+      <button class="icon-btn" id="refreshBtn" title="立即刷新">
+        <svg viewBox="0 0 24 24" width="17" height="17"><path d="M20 12a8 8 0 1 1-2.34-5.66M20 4v5h-5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <main class="shell">
+    <section id="summaryView">
+      <div class="hero">
+        <div>
+          <div class="eyebrow"><span class="live-dot"></span> LIVE · 自动刷新 <span id="refreshHint">15s</span></div>
+          <h2>终端安全态势总览</h2>
+          <p>汇总局域网内所有客户端的端口封堵、暴露面与风险状态。数据由客户端自动上报。</p>
+        </div>
+        <div class="hero-meta">
+          <div class="hero-meta-label">最后上报</div>
+          <div class="hero-meta-value" id="lastSeen">—</div>
+        </div>
+      </div>
+
+      <div class="kpi-grid" id="kpis"></div>
+
+      <div class="grid grid-2">
+        <div class="card chart-card">
+          <div class="card-head">
+            <div><h3>风险分布</h3><span class="card-sub">按主机当前风险等级</span></div>
+            <span class="tag" id="riskTotalTag">—</span>
+          </div>
+          <div id="riskChart" class="risk-chart"></div>
+        </div>
+        <div class="card chart-card">
+          <div class="card-head">
+            <div><h3>24 小时上报趋势</h3><span class="card-sub">每小时接收到的客户端报文数</span></div>
+            <span class="tag" id="trendTotalTag">—</span>
+          </div>
+          <div id="trendChart" class="trend-chart"></div>
+        </div>
+      </div>
+
+      <div class="grid grid-2">
+        <div class="card">
+          <div class="card-head">
+            <div><h3>暴露端口 TOP</h3><span class="card-sub">按当前暴露该端口的主机数排序</span></div>
+            <span class="tag red">实时</span>
+          </div>
+          <div id="topPorts" class="port-top"></div>
+        </div>
+        <div class="card">
+          <div class="card-head">
+            <div><h3>最近上报</h3><span class="card-sub">最新接收的客户端快照</span></div>
+            <span class="tag">LIVE</span>
+          </div>
+          <div id="recent" class="recent"></div>
+        </div>
+      </div>
+
+      <div class="card table-card">
+        <div class="card-head table-head">
+          <div><h3>主机清单</h3><span class="card-sub" id="hostCount">共 0 台</span></div>
+          <div class="tools">
+            <input id="search" class="input" placeholder="搜索主机名 / IP / MAC / 用户">
+            <select id="riskFilter" class="input select">
+              <option value="all">全部风险</option>
+              <option value="high">高危</option>
+              <option value="medium">中危</option>
+              <option value="low">低危</option>
+            </select>
+            <select id="statusFilter" class="input select">
+              <option value="all">全部状态</option>
+              <option value="online">在线</option>
+              <option value="offline">离线</option>
+            </select>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>主机</th><th>IP 地址</th><th>状态</th><th>风险</th>
+                <th class="num">暴露</th><th class="num">封堵</th><th>操作系统</th><th>最后上报</th>
+              </tr>
+            </thead>
+            <tbody id="hostBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section id="hostView" hidden>
+      <button class="back-btn" id="backBtn">
+        <svg viewBox="0 0 24 24" width="15" height="15"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        返回总览
+      </button>
+
+      <div class="host-hero">
+        <div class="host-avatar" id="hostAvatar">PC</div>
+        <div class="host-title">
+          <h2 id="hostName">—</h2>
+          <div class="host-meta" id="hostMeta">—</div>
+        </div>
+        <div class="host-badges" id="hostBadges"></div>
+      </div>
+
+      <div class="kpi-grid kpi-small" id="hostKpis"></div>
+
+      <div class="grid grid-2">
+        <div class="card">
+          <div class="card-head">
+            <div><h3>端口暴露面</h3><span class="card-sub">高危端口策略 high-risk-84</span></div>
+            <div class="seg" id="portFilter">
+              <button data-f="all" class="active">全部</button>
+              <button data-f="exposed">暴露</button>
+              <button data-f="critical">严重</button>
+            </div>
+          </div>
+          <div id="portGrid" class="port-grid"></div>
+        </div>
+        <div class="card">
+          <div class="card-head">
+            <div><h3>设备信息</h3><span class="card-sub">最近一次采集快照</span></div>
+            <span class="tag" id="hostReportTag">—</span>
+          </div>
+          <div id="hostInfo" class="info-grid"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <div><h3>上报历史</h3><span class="card-sub">风险分与暴露端口变化</span></div>
+          <span class="tag" id="historyTag">—</span>
+        </div>
+        <div id="historyChart" class="history-chart"></div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>采集时间</th><th class="num">风险分</th><th>等级</th><th class="num">暴露</th><th class="num">封堵</th><th class="num">严重</th><th>Report ID</th></tr></thead>
+            <tbody id="historyBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div id="loginMask" class="mask" hidden>
+    <div class="login-card">
+      <div class="login-logo">
+        <svg viewBox="0 0 48 48" width="42" height="42"><path d="M24 4 40 10v12c0 10-6.8 18.2-16 22C14.8 40.2 8 32 8 22V10z" fill="none" stroke="#22d3ee" stroke-width="2.2"/><path d="M16.5 23.5 21.5 28.5 32 17.5" fill="none" stroke="#22d3ee" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+      <h3>访问数据大屏</h3>
+      <p>服务端已启用大屏访问令牌，请输入后继续。</p>
+      <input id="loginToken" class="input" type="password" placeholder="Dashboard Token" autocomplete="current-password">
+      <button id="loginBtn" class="primary-btn">进入</button>
+      <div id="loginErr" class="login-err"></div>
+    </div>
+  </div>
+
+  <script src="/app.js"></script>
+</body>
+</html>
